@@ -12,6 +12,11 @@ const PROTECTED_PREFIXES = ["/admin", "/resident", "/security"];
 const AUTH_ROUTES = ["/login", "/signup"];
 
 export async function middleware(request: NextRequest) {
+  // ── Dev bypass: skip all auth redirects during local development ──────────
+  if (process.env.NODE_ENV === "development") {
+    return NextResponse.next({ request });
+  }
+
   const response = NextResponse.next({ request });
 
   const supabase = createServerClient(

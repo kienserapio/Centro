@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Centro - Modern Community Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#FF8C42", // Orange
+                        secondary: "#2D5A27", // Deep Forest Green
+                        sage: "#E8F3E6", // Sage Green
+                        "off-white": "#FAFAF9",
+                    },
+                    fontFamily: {
+                        sans: ["'Product Sans'", "sans-serif"],
+                    },
+                    borderRadius: {
+                        'custom': "12px",
+                    },
+                },
+            },
+        };
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply font-sans text-slate-800 bg-off-white;
+            }
+        }
+        .hero-gradient {
+            background: linear-gradient(to bottom, rgba(255,255,255,0.2) 0%, rgba(255,255,255,1) 100%);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .sticky-nav {
+            backdrop-filter: blur(8px);
+            background: rgba(255, 255, 255, 0.9);
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+<nav class="fixed top-0 w-full z-50 sticky-nav border-b border-slate-100">
+<div class="max-w-7xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl">hub</span>
+</div>
+<span class="text-2xl font-bold text-secondary tracking-tight">Centro</span>
+</div>
+<div class="hidden lg:flex items-center space-x-10">
+<a class="text-[15px] font-medium text-slate-600 hover:text-secondary transition-colors" href="#">Features</a>
+<a class="text-[15px] font-medium text-slate-600 hover:text-secondary transition-colors" href="#">Dashboard</a>
+<a class="text-[15px] font-medium text-slate-600 hover:text-secondary transition-colors" href="#">How it Works</a>
+<a class="text-[15px] font-medium text-slate-600 hover:text-secondary transition-colors" href="#">About Us</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-5 py-2.5 text-[15px] font-bold text-secondary border border-secondary/20 rounded-custom hover:bg-secondary/5 transition-all">Admin Login</button>
+<button class="px-6 py-2.5 text-[15px] font-bold bg-primary text-white rounded-custom shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Join My Community</button>
+</div>
+</div>
+</nav>
+<header class="relative pt-32 pb-40 overflow-hidden min-h-[90vh] flex items-center">
+<div class="absolute inset-0 -z-10">
+<img alt="Residential Subdivision" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfCQGS27HsVoShpsJLUX-JQEoBLs5cylrmNRLXuYoxoesxShtvAEdFx7yu9CE51fYUYNhdtIzTZwBFkvMEx5JoLGKnZ7TdkuiLfzGPodX96qvbRlr05b-JaNAkT7DxyjLu-GTa09uMkJGjEZfghXceZl8lDhaVtfsxZ1qNuDYOmcp_poj59cC6N9T4tE2WqPmekMwWUL3ZN8zZPEnfnd8LMgkp_arE78amHk9nqgf83jErfMdXciqilL4zLDMxA7qJQUqTPwOUb2o"/>
+<div class="absolute inset-0 hero-gradient"></div>
+</div>
+<div class="max-w-7xl mx-auto px-6 lg:px-12 text-center">
+<h1 class="text-5xl md:text-7xl font-bold text-secondary mb-8 leading-[1.1] max-w-4xl mx-auto">
+                The Digital Heart of <br/>Your Community.
+            </h1>
+<p class="text-xl md:text-2xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed">
+                Centralize management, secure your neighborhood, and stay informed with the Philippines' leading platform.
+            </p>
+<button class="px-10 py-5 bg-primary text-white text-lg font-bold rounded-custom shadow-2xl shadow-primary/40 hover:-translate-y-1 transition-all">
+                Empower Your Subdivision
+            </button>
+</div>
+</header>
+<div class="max-w-7xl mx-auto px-6 lg:px-12 -mt-16 relative z-10">
+<div class="bg-white rounded-[20px] shadow-xl shadow-slate-200/50 p-8 md:p-12 flex flex-col md:flex-row justify-around items-center gap-8 text-center border border-slate-50">
+<div>
+<div class="text-3xl font-bold text-secondary mb-1">100%</div>
+<div class="text-slate-500 font-medium">Transparent Dues</div>
+</div>
+<div class="hidden md:block w-px h-12 bg-slate-100"></div>
+<div>
+<div class="text-3xl font-bold text-secondary mb-1">Real-time</div>
+<div class="text-slate-500 font-medium">Announcements</div>
+</div>
+<div class="hidden md:block w-px h-12 bg-slate-100"></div>
+<div>
+<div class="text-3xl font-bold text-secondary mb-1">24/7</div>
+<div class="text-slate-500 font-medium">Emergency Response</div>
+</div>
+</div>
+</div>
+<section class="py-32 max-w-7xl mx-auto px-6 lg:px-12">
+<div class="text-center mb-20">
+<span class="text-primary font-bold uppercase tracking-widest text-sm mb-4 block">Capabilities</span>
+<h2 class="text-4xl font-bold text-secondary">Community Essentials</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="glass-card p-10 rounded-custom hover:shadow-2xl hover:shadow-secondary/10 transition-all border-white/40">
+<div class="w-14 h-14 bg-secondary text-white rounded-xl flex items-center justify-center mb-8">
+<span class="material-symbols-outlined text-3xl">campaign</span>
+</div>
+<h3 class="text-2xl font-bold text-secondary mb-4">Announcements</h3>
+<p class="text-slate-600 leading-relaxed">
+                    Instantly reach every home with digital circulars, meeting invites, and community updates.
+                </p>
+</div>
+<div class="glass-card p-10 rounded-custom hover:shadow-2xl hover:shadow-secondary/10 transition-all border-white/40">
+<div class="w-14 h-14 bg-secondary text-white rounded-xl flex items-center justify-center mb-8">
+<span class="material-symbols-outlined text-3xl">receipt_long</span>
+</div>
+<h3 class="text-2xl font-bold text-secondary mb-4">Dues &amp; Payments</h3>
+<p class="text-slate-600 leading-relaxed">
+                    Automated billing and secure digital payments. Track community funds with total transparency.
+                </p>
+</div>
+<div class="glass-card p-10 rounded-custom hover:shadow-2xl hover:shadow-secondary/10 transition-all border-white/40">
+<div class="w-14 h-14 bg-secondary text-white rounded-xl flex items-center justify-center mb-8">
+<span class="material-symbols-outlined text-3xl">e911_emergency</span>
+</div>
+<h3 class="text-2xl font-bold text-secondary mb-4">Emergency Alerts</h3>
+<p class="text-slate-600 leading-relaxed">
+                    One-tap panic button for residents linked directly to subdivision security and first responders.
+                </p>
+</div>
+</div>
+</section>
+<section class="bg-white py-32 overflow-hidden">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<div class="flex flex-col lg:flex-row items-center gap-16">
+<div class="w-full lg:w-1/2">
+<h2 class="text-4xl font-bold text-secondary mb-8">Tailored for every role.</h2>
+<div class="space-y-6">
+<div class="p-6 bg-sage border-l-4 border-secondary rounded-r-custom">
+<h4 class="font-bold text-secondary mb-2">Resident Dashboard</h4>
+<p class="text-slate-700 text-[15px]">Pay dues, view announcements, and register guests from your mobile phone.</p>
+</div>
+<div class="p-6 bg-white border border-slate-100 rounded-custom hover:border-secondary/20 transition-all cursor-pointer">
+<h4 class="font-bold text-slate-400 mb-2">Admin Management</h4>
+<p class="text-slate-400 text-[15px]">Full control over accounting, resident lists, and community-wide broadcasts.</p>
+</div>
+<div class="p-6 bg-white border border-slate-100 rounded-custom hover:border-secondary/20 transition-all cursor-pointer">
+<h4 class="font-bold text-slate-400 mb-2">Guard Portal</h4>
+<p class="text-slate-400 text-[15px]">Quickly verify visitors via QR codes and manage vehicle entry logs in real-time.</p>
+</div>
+</div>
+</div>
+<div class="w-full lg:w-1/2 relative">
+<div class="bg-slate-50 rounded-2xl p-4 shadow-2xl">
+<img alt="Centro Dashboard" class="rounded-custom border border-slate-200 shadow-inner" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAE_sQwSIGbgoJubrhVuu-IpZQhU9CWv0xl_oxh9rO6ONSyO0S2vEoutCG7dLQ5otvjlAjaWkhLrc_DJR8k1DDi9gRvaQdcQ1b4jMW8Q8-P7fF6UQa8zMcJNjCJIJYihp1FmR9YKgfIazi5qy7b28a63qKe0kVz9SmQbnMpNR1fDbioBqjGm-GBGuON0L2FVbzyncr0fmc6xPcRlIxdRmWNmz6KBvDVH3MNLr9SDNr5X1bk7qUlfbacVJaUvsW-Qcn38w1OgQM8M5A"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-32 max-w-7xl mx-auto px-6 lg:px-12">
+<div class="text-center mb-20">
+<h2 class="text-4xl font-bold text-secondary">Simple 1-2-3 Onboarding</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+<div class="hidden md:block absolute top-12 left-0 w-full h-0.5 bg-slate-100 -z-10"></div>
+<div class="text-center">
+<div class="w-20 h-20 bg-white border-2 border-primary text-primary text-2xl font-bold rounded-full flex items-center justify-center mx-auto mb-6">1</div>
+<h3 class="text-xl font-bold text-secondary mb-3">Digitize</h3>
+<p class="text-slate-600">Import your resident data and historical ledgers securely.</p>
+</div>
+<div class="text-center">
+<div class="w-20 h-20 bg-white border-2 border-primary text-primary text-2xl font-bold rounded-full flex items-center justify-center mx-auto mb-6">2</div>
+<h3 class="text-xl font-bold text-secondary mb-3">Connect</h3>
+<p class="text-slate-600">Invite residents to download the app and join the digital circle.</p>
+</div>
+<div class="text-center">
+<div class="w-20 h-20 bg-white border-2 border-primary text-primary text-2xl font-bold rounded-full flex items-center justify-center mx-auto mb-6">3</div>
+<h3 class="text-xl font-bold text-secondary mb-3">Thrive</h3>
+<p class="text-slate-600">Enjoy seamless management and a safer, unified neighborhood.</p>
+</div>
+</div>
+</section>
+<section class="bg-sage py-24">
+<div class="max-w-4xl mx-auto px-6 text-center">
+<h2 class="text-3xl md:text-5xl font-bold text-secondary leading-tight italic">
+                "Centro is the modern standard for Philippine neighborhoods, bringing trust and technology to the heart of every home."
+            </h2>
+</div>
+</section>
+<section class="py-32 px-6">
+<div class="max-w-7xl mx-auto">
+<div class="bg-primary rounded-[32px] p-12 md:p-24 text-center text-white shadow-2xl shadow-primary/30">
+<h2 class="text-4xl md:text-6xl font-bold mb-8">Ready to modernize your community?</h2>
+<p class="text-xl text-white/90 mb-12 max-w-2xl mx-auto">
+                    Join hundreds of Philippine subdivisions that have upgraded to a more efficient management style.
+                </p>
+<div class="flex flex-col sm:flex-row justify-center gap-6">
+<button class="bg-white text-primary px-10 py-5 rounded-custom text-lg font-bold hover:scale-105 transition-all">Schedule a Demo</button>
+<button class="bg-secondary text-white px-10 py-5 rounded-custom text-lg font-bold border border-secondary hover:bg-secondary/90 transition-all">Contact Sales</button>
+</div>
+</div>
+</div>
+</section>
+<footer class="bg-white py-20 border-t border-slate-100">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+<div class="col-span-1 md:col-span-2">
+<div class="flex items-center gap-2 mb-6">
+<div class="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl">hub</span>
+</div>
+<span class="text-2xl font-bold text-secondary tracking-tight">Centro</span>
+</div>
+<p class="text-slate-500 max-w-sm text-lg">
+                        Built for the Filipino Community. Elevating the standard of living through digital connectivity.
+                    </p>
+</div>
+<div>
+<h4 class="font-bold text-secondary mb-6">Company</h4>
+<ul class="space-y-4 text-slate-600 font-medium">
+<li><a class="hover:text-primary transition-colors" href="#">Our Mission</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">How it Works</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Pricing</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Careers</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold text-secondary mb-6">Legal</h4>
+<ul class="space-y-4 text-slate-600 font-medium">
+<li><a class="hover:text-primary transition-colors" href="#">Privacy Policy</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Terms of Use</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Cookie Policy</a></li>
+</ul>
+</div>
+</div>
+<div class="pt-8 border-t border-slate-100 flex flex-col md:row justify-between items-center gap-4 text-slate-400">
+<p>© 2026 Centro Platform. All rights reserved.</p>
+<div class="flex gap-6">
+<a class="hover:text-secondary" href="#">Twitter</a>
+<a class="hover:text-secondary" href="#">Facebook</a>
+<a class="hover:text-secondary" href="#">LinkedIn</a>
+</div>
+</div>
+</div>
+</footer>
+
+</body></html>

@@ -96,19 +96,19 @@ Centro follows a serverless architecture where security is enforced at the datab
     npm run dev
     Open http://localhost:3000 to see the result.
 
-##👥 The Team
+## 👥 The Team
 Kien Serapio — Project Manager & Full Stack Developer
 Vince Santos — Backend Developer & Database Engineer
 Toni Narra — Frontend Developer (UI Systems)
 Gvan Rocas — Frontend Developer (Mobile & Real-Time)
 Lowel Rubino — Backend Developer & QA Specialist
 
-##🛡️ Design System
+## 🛡️ Design System
 Centro uses a Modern Minimalist SaaS aesthetic.
 Font: Product Sans
 Forest Green (#2D5A27): Primary actions & Success states.
 Sunset Orange (#FF8C42): Emergency alerts & Urgent CTAs.
 Surface: Minimal white (#FFFFFF) for high readability.
 
-##📄 License
+## 📄 License
 This project is for academic purposes. Confidential | Centro Development Team.

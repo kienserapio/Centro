@@ -1,0 +1,278 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { Resident } from "./ResidentListing";
+
+interface AddResidentModalProps {
+  onClose: () => void;
+  onAdd: (resident: Omit<Resident, "id" | "duesStatus" | "role">) => void;
+  existingAddresses: { phases: string[]; blocks: string[]; lots: string[] };
+}
+
+export function AddResidentModal({ onClose, onAdd, existingAddresses }: AddResidentModalProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    phase: existingAddresses.phases[0] ?? "Phase 1",
+    block: existingAddresses.blocks[0] ?? "Block 1",
+    lot: existingAddresses.lots[0] ?? "Lot 1",
+    customPhase: "",
+    customBlock: "",
+    customLot: "",
+    useCustomPhase: false,
+    useCustomBlock: false,
+    useCustomLot: false,
+  });
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const phase = form.useCustomPhase ? form.customPhase : form.phase;
+    const block = form.useCustomBlock ? form.customBlock : form.block;
+    const lot = form.useCustomLot ? form.customLot : form.lot;
+    onAdd({
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      address: `${phase}, ${block}, ${lot}`,
+      avatar: avatarPreview,
+    });
+    onClose();
+  }
+
+  function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget) onClose();
+  }
+
+  const inputClass =
+    "w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary transition";
+  const selectClass =
+    "flex-1 px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary transition";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-8 pt-8 pb-5 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary">
+              <span className="material-icons-round">person_add</span>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-[#111827]">Add New Resident</h3>
+              <p className="text-xs text-[#6B7280]">Register a new community member.</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg transition-colors"
+            aria-label="Close modal"
+          >
+            <span className="material-icons-round">close</span>
+          </button>
+        </div>
+
+        {/* Scrollable Form */}
+        <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5 overflow-y-auto">
+          {/* Avatar Upload */}
+          <div
+            className="flex flex-col items-center gap-3 py-5 border-2 border-dashed border-[#E5E7EB] rounded-xl bg-[#F8F9FA] cursor-pointer hover:border-secondary/40 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {avatarPreview ? (
+              <div
+                className="w-16 h-16 rounded-full bg-cover bg-center border-2 border-secondary/30"
+                style={{ backgroundImage: `url('${avatarPreview}')` }}
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-[#6B7280] shadow-sm">
+                <span className="material-icons-round text-3xl">add_a_photo</span>
+              </div>
+            )}
+            <span className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+              {avatarPreview ? "Change Photo" : "Upload Profile Photo"}
+            </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
+
+          {/* Full Name */}
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+              Full Name
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Juan Dela Cruz"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+
+          {/* Phone + Email */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                placeholder="+63 9XX XXX XXXX"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+                Email Address
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="juan@email.com"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          {/* Address Section */}
+          <div className="space-y-3">
+            <label className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+              Address
+            </label>
+
+            {/* Phase */}
+            <div className="space-y-1.5">
+              <span className="text-xs text-[#6B7280] font-medium">Phase</span>
+              <div className="flex gap-2 items-center">
+                {form.useCustomPhase ? (
+                  <input
+                    type="text"
+                    placeholder="e.g. Phase 4"
+                    value={form.customPhase}
+                    onChange={(e) => setForm({ ...form, customPhase: e.target.value })}
+                    className={selectClass}
+                  />
+                ) : (
+                  <select
+                    value={form.phase}
+                    onChange={(e) => setForm({ ...form, phase: e.target.value })}
+                    className={selectClass}
+                  >
+                    {existingAddresses.phases.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, useCustomPhase: !form.useCustomPhase, customPhase: "" })}
+                  className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-[#F3F4F6] text-[#6B7280] hover:bg-secondary/10 hover:text-secondary transition-colors"
+                >
+                  {form.useCustomPhase ? "Use existing" : "Add new"}
+                </button>
+              </div>
+            </div>
+
+            {/* Block */}
+            <div className="space-y-1.5">
+              <span className="text-xs text-[#6B7280] font-medium">Block</span>
+              <div className="flex gap-2 items-center">
+                {form.useCustomBlock ? (
+                  <input
+                    type="text"
+                    placeholder="e.g. Block 11"
+                    value={form.customBlock}
+                    onChange={(e) => setForm({ ...form, customBlock: e.target.value })}
+                    className={selectClass}
+                  />
+                ) : (
+                  <select
+                    value={form.block}
+                    onChange={(e) => setForm({ ...form, block: e.target.value })}
+                    className={selectClass}
+                  >
+                    {existingAddresses.blocks.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, useCustomBlock: !form.useCustomBlock, customBlock: "" })}
+                  className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-[#F3F4F6] text-[#6B7280] hover:bg-secondary/10 hover:text-secondary transition-colors"
+                >
+                  {form.useCustomBlock ? "Use existing" : "Add new"}
+                </button>
+              </div>
+            </div>
+
+            {/* Lot */}
+            <div className="space-y-1.5">
+              <span className="text-xs text-[#6B7280] font-medium">Lot</span>
+              <div className="flex gap-2 items-center">
+                {form.useCustomLot ? (
+                  <input
+                    type="text"
+                    placeholder="e.g. Lot 16"
+                    value={form.customLot}
+                    onChange={(e) => setForm({ ...form, customLot: e.target.value })}
+                    className={selectClass}
+                  />
+                ) : (
+                  <select
+                    value={form.lot}
+                    onChange={(e) => setForm({ ...form, lot: e.target.value })}
+                    className={selectClass}
+                  >
+                    {existingAddresses.lots.map((l) => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, useCustomLot: !form.useCustomLot, customLot: "" })}
+                  className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-[#F3F4F6] text-[#6B7280] hover:bg-secondary/10 hover:text-secondary transition-colors"
+                >
+                  {form.useCustomLot ? "Use existing" : "Add new"}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            className="w-full py-3.5 bg-secondary hover:bg-secondary/90 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+          >
+            <span className="material-icons-round text-[18px]">person_add</span>
+            Add Resident
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

@@ -2,7 +2,7 @@ import { DuesStatusBadge } from "./DuesStatusBadge";
 
 type DuesStatus = "paid" | "unpaid" | "pending";
 
-interface Resident {
+export interface Resident {
   id: number;
   name: string;
   email: string;
@@ -13,7 +13,7 @@ interface Resident {
   avatar: string;
 }
 
-const RESIDENTS: Resident[] = [
+export const INITIAL_RESIDENTS: Resident[] = [
   {
     id: 1,
     name: "Johnathan Doe",
@@ -97,7 +97,11 @@ function ResidentRow({ resident }: { resident: Resident }) {
   );
 }
 
-export function ResidentListing() {
+interface ResidentListingProps {
+  residents: Resident[];
+}
+
+export function ResidentListing({ residents }: ResidentListingProps) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -125,7 +129,7 @@ export function ResidentListing() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F3F4F6]">
-            {RESIDENTS.map((resident) => (
+            {residents.map((resident) => (
               <ResidentRow key={resident.id} resident={resident} />
             ))}
           </tbody>

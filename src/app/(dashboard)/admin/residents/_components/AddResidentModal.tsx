@@ -12,10 +12,13 @@ interface AddResidentModalProps {
 export function AddResidentModal({ onClose, onAdd, existingAddresses }: AddResidentModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
     phone: "",
+    username: "",
+    password: "",
     phase: existingAddresses.phases[0] ?? "Phase 1",
     block: existingAddresses.blocks[0] ?? "Block 1",
     lot: existingAddresses.lots[0] ?? "Lot 1",
@@ -154,6 +157,45 @@ export function AddResidentModal({ onClose, onAdd, existingAddresses }: AddResid
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className={inputClass}
               />
+            </div>
+          </div>
+
+          {/* Username + Password */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+                Username
+              </label>
+              <input
+                type="text"
+                placeholder="j.delacruz24"
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                className={inputClass}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className={`${inputClass} pr-10`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#111827] transition-colors"
+                >
+                  <span className="material-icons-round text-[18px]">
+                    {showPassword ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
 

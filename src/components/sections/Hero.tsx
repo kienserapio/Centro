@@ -4,6 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { MacosWindow } from "@/components/ui/MacosWindow";
+import Link from "next/link";
 
 export function Hero() {
   return (
@@ -46,13 +47,15 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
         >
-          <Button
-            variant="glass-primary"
-            size="lg"
-            className="hover:-translate-y-1"
-          >
-            Empower Your Subdivision
-          </Button>
+          <Link href="/login">
+            <Button
+              variant="glass-primary"
+              size="lg"
+              className="hover:-translate-y-1"
+            >
+              Empower Your Subdivision
+            </Button>
+          </Link>
         </motion.div>
 
         {/* macOS dashboard window — bridges hero into stats */}

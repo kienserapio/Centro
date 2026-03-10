@@ -65,13 +65,15 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="hidden lg:flex items-center gap-4">
-          <Button
-            variant={scrolled ? "outline" : "glass"}
-            size="md"
-            className={scrolled ? "" : "text-sm py-2 px-4"}
-          >
-            Admin Login
-          </Button>
+          <Link href="/login">
+            <Button
+              variant={scrolled ? "outline" : "glass"}
+              size="md"
+              className={scrolled ? "" : "text-sm py-2 px-4"}
+            >
+              Admin Login
+            </Button>
+          </Link>
           <Button variant="primary" size="md">
             Join My Community
           </Button>
@@ -103,9 +105,11 @@ export function Navbar() {
             </Link>
           ))}
           <div className="flex flex-col gap-3 pt-4 border-t border-slate-100">
-            <Button variant="outline" size="md" className="w-full justify-center">
-              Admin Login
-            </Button>
+            <Link href="/login" className="w-full">
+              <Button variant="outline" size="md" className="w-full justify-center">
+                Admin Login
+              </Button>
+            </Link>
             <Button variant="primary" size="md" className="w-full justify-center">
               Join My Community
             </Button>

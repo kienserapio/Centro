@@ -17,16 +17,6 @@ export function AdminHeader() {
           <span className="material-icons-round">notifications</span>
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
         </button>
-        <div className="h-9 w-px bg-[#E5E7EB] mx-1" />
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-full bg-[#E5E7EB] flex items-center justify-center shrink-0">
-            <span className="material-icons-round text-[#6B7280] text-sm">person</span>
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-sm font-semibold text-[#111827] leading-tight">Juan Dela Cruz</p>
-            <p className="text-xs text-[#6B7280]">Super Admin</p>
-          </div>
-        </div>
       </div>
     </header>
   );

@@ -18,7 +18,6 @@ export default function Home() {
         <Features />
         <Roles />
         <Onboarding />
-        <Testimonial />
         <CTA />
       </main>
       <Footer />

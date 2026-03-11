@@ -4,20 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SidebarUserProfile } from "@/app/(dashboard)/_components/SidebarUserProfile";
 
-const NAV_MAIN = [
-  { label: "Dashboard", href: "/admin", icon: "dashboard" },
-  { label: "Residents", href: "/admin/residents", icon: "people" },
-  { label: "Dues & Billing", href: "/admin/dues", icon: "payments" },
-  { label: "Roles & Permissions", href: "/admin/roles", icon: "admin_panel_settings" },
-  { label: "Announcements", href: "/admin/posts", icon: "campaign" },
+const NAV_ITEMS = [
+  { label: "Dashboard", href: "/security", icon: "dashboard" },
+  { label: "Visitor Log", href: "/security/visitors", icon: "group" },
+  { label: "Unit Directory", href: "/security/units", icon: "domain" },
+  { label: "Incident Reports", href: "/security/incidents", icon: "report" },
 ];
 
 const NAV_TOOLS = [
-  { label: "Settings", href: "/admin/settings", icon: "settings" },
-  { label: "Help Desk", href: "/admin/help", icon: "help_outline" },
+  { label: "Settings", href: "/security/settings", icon: "settings" },
+  { label: "Help Center", href: "/security/help", icon: "help_outline" },
 ];
 
-export function AdminSidebar() {
+export function SecuritySidebar() {
   const pathname = usePathname();
 
   return (
@@ -25,7 +24,7 @@ export function AdminSidebar() {
       {/* Branding */}
       <div className="p-6 flex items-center gap-3">
         <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-          <span className="material-icons-round text-white">home_work</span>
+          <span className="material-icons-round text-white">shield</span>
         </div>
         <span className="text-xl font-bold tracking-tight text-secondary">Centro</span>
       </div>
@@ -34,10 +33,10 @@ export function AdminSidebar() {
       <nav className="flex-1 px-4 space-y-6 overflow-y-auto">
         <div>
           <p className="px-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-2">
-            Main Menu
+            Command
           </p>
           <div className="space-y-0.5">
-            {NAV_MAIN.map((item) => {
+            {NAV_ITEMS.map((item) => {
               const isActive = pathname === item.href;
               return (
                 <Link
@@ -65,7 +64,7 @@ export function AdminSidebar() {
 
         <div>
           <p className="px-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wider mb-2">
-            Admin Tools
+            Tools
           </p>
           <div className="space-y-0.5">
             {NAV_TOOLS.map((item) => {

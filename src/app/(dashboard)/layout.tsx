@@ -10,8 +10,12 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
 
-  // Resident and admin have their own full-page layouts with their own sidebars
-  if (pathname?.startsWith("/resident") || pathname?.startsWith("/admin")) {
+  // Resident, admin, and security have their own full-page layouts with their own sidebars
+  if (
+    pathname?.startsWith("/resident") ||
+    pathname?.startsWith("/admin") ||
+    pathname?.startsWith("/security")
+  ) {
     return <>{children}</>;
   }
 

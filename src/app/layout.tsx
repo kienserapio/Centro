@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="font-sans">
       <head>
         <link
           href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"

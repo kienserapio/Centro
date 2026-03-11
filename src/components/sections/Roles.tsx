@@ -22,7 +22,7 @@ const roles: Role[] = [
     description:
       "Pay dues, view announcements, and register guests from your mobile phone.",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAE_sQwSIGbgoJubrhVuu-IpZQhU9CWv0xl_oxh9rO6ONSyO0S2vEoutCG7dLQ5otvjlAjaWkhLrc_DJR8k1DDi9gRvaQdcQ1b4jMW8Q8-P7fF6UQa8zMcJNjCJIJYihp1FmR9YKgfIazi5qy7b28a63qKe0kVz9SmQbnMpNR1fDbioBqjGm-GBGuON0L2FVbzyncr0fmc6xPcRlIxdRmWNmz6KBvDVH3MNLr9SDNr5X1bk7qUlfbacVJaUvsW-Qcn38w1OgQM8M5A",
+      "/Resident Dashboard.png",
     imageAlt: "Centro Resident Dashboard showing dues and announcements",
   },
   {
@@ -31,7 +31,7 @@ const roles: Role[] = [
     description:
       "Full control over accounting, resident lists, and community-wide broadcasts.",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAE_sQwSIGbgoJubrhVuu-IpZQhU9CWv0xl_oxh9rO6ONSyO0S2vEoutCG7dLQ5otvjlAjaWkhLrc_DJR8k1DDi9gRvaQdcQ1b4jMW8Q8-P7fF6UQa8zMcJNjCJIJYihp1FmR9YKgfIazi5qy7b28a63qKe0kVz9SmQbnMpNR1fDbioBqjGm-GBGuON0L2FVbzyncr0fmc6xPcRlIxdRmWNmz6KBvDVH3MNLr9SDNr5X1bk7qUlfbacVJaUvsW-Qcn38w1OgQM8M5A",
+      "/Admin Dashboard.png",  
     imageAlt: "Centro Admin Dashboard showing accounting and resident lists",
   },
   {
@@ -40,7 +40,7 @@ const roles: Role[] = [
     description:
       "Quickly verify visitors via QR codes and manage vehicle entry logs in real-time.",
     image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAE_sQwSIGbgoJubrhVuu-IpZQhU9CWv0xl_oxh9rO6ONSyO0S2vEoutCG7dLQ5otvjlAjaWkhLrc_DJR8k1DDi9gRvaQdcQ1b4jMW8Q8-P7fF6UQa8zMcJNjCJIJYihp1FmR9YKgfIazi5qy7b28a63qKe0kVz9SmQbnMpNR1fDbioBqjGm-GBGuON0L2FVbzyncr0fmc6xPcRlIxdRmWNmz6KBvDVH3MNLr9SDNr5X1bk7qUlfbacVJaUvsW-Qcn38w1OgQM8M5A",
+      "/Security Dashboard.png",
     imageAlt: "Centro Guard Portal showing QR visitor verification",
   },
 ];

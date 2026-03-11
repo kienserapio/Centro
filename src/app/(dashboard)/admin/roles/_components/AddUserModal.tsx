@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import { StaffRole } from "./RoleBadge";
-import { StaffMember } from "./RolesListing";
+import type { StaffMember } from "./RolesListing";
 
 interface AddUserModalProps {
   onClose: () => void;
-  onAdd?: (member: Omit<StaffMember, "id">) => void;
+  onAdd?: () => void;
   onSave?: (member: StaffMember) => void;
   editMember?: StaffMember;
 }
 
-const ROLES: StaffRole[] = ["Admin", "Security"];
+const ROLES: StaffRole[] = ["Admin", "Security", "Resident"];
 
 export function AddUserModal({ onClose, onAdd, onSave, editMember }: AddUserModalProps) {
   const isEditing = !!editMember;
@@ -88,15 +88,8 @@ export function AddUserModal({ onClose, onAdd, onSave, editMember }: AddUserModa
 
       console.log("[AddUserModal] ✅ User created successfully!");
 
-      // Also notify parent so the list can refresh
-      onAdd?.({
-        name: form.name,
-        email: form.email,
-        phone: form.phone,
-        role: form.role,
-        status: "Active",
-        avatar: "",
-      });
+      // Notify parent to re-fetch the user list
+      onAdd?.();
 
       onClose();
     } catch (err) {

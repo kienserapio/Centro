@@ -32,7 +32,7 @@ export default function PostsPage() {
   const fetchAnnouncements = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/announcements');
+      const response = await fetch('/api/admin/announcements');
       if (response.ok) {
         const data = await response.json();
         setAnnouncements(data || []);
@@ -58,7 +58,7 @@ export default function PostsPage() {
     e.preventDefault();
 
     try {
-      const response = await fetch('/api/announcements', {
+      const response = await fetch('/api/admin/announcements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +186,7 @@ export default function PostsPage() {
         <div className="lg:col-span-2">
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-4">Recent Announcements</h2>
-            
+
             {loading ? (
               <p className="text-gray-500">Loading...</p>
             ) : announcements.length === 0 ? (
@@ -206,28 +206,27 @@ export default function PostsPage() {
                         </span>
                       )}
                     </div>
-                    
+
                     <p className="text-gray-700 mb-3">{announcement.body}</p>
-                    
+
                     <div className="flex gap-2 mb-2 flex-wrap">
                       <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
                         {announcement.category}
                       </span>
                       <span
-                        className={`text-xs px-2 py-1 rounded font-medium ${
-                          announcement.priority === 'emergency'
-                            ? 'bg-red-100 text-red-800'
-                            : announcement.priority === 'high'
+                        className={`text-xs px-2 py-1 rounded font-medium ${announcement.priority === 'emergency'
+                          ? 'bg-red-100 text-red-800'
+                          : announcement.priority === 'high'
                             ? 'bg-orange-100 text-orange-800'
                             : announcement.priority === 'medium'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}
                       >
                         {announcement.priority}
                       </span>
                     </div>
-                    
+
                     <p className="text-xs text-gray-500">
                       {new Date(announcement.created_at).toLocaleDateString()} at{' '}
                       {new Date(announcement.created_at).toLocaleTimeString()}

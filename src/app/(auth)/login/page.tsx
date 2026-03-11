@@ -1,4 +1,78 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+// Must match middleware.ts ROLE_HOME mapping
+const ROLE_HOME: Record<string, string> = {
+  admin: "/admin",
+  resident: "/resident",
+  guard: "/security",
+};
+
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    console.log("[Login] 🚀 Attempting sign in for:", email);
+
+    try {
+      const supabase = createClient();
+
+      // 1. Sign in with email + password
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({ email, password });
+
+      if (authError) {
+        console.error("[Login] ❌ Auth error:", authError.message);
+        setError(authError.message);
+        return;
+      }
+
+      if (!authData.user) {
+        console.error("[Login] ❌ No user returned");
+        setError("Login failed. Please try again.");
+        return;
+      }
+
+      console.log("[Login] ✅ Authenticated:", authData.user.id);
+
+      // 2. Fetch the user's role from the profiles table
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", authData.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error("[Login] ❌ Profile fetch error:", profileError?.message);
+        setError("Your account profile was not found. Contact an admin.");
+        return;
+      }
+
+      console.log("[Login] ✅ Role:", profile.role);
+
+      // 3. Redirect based on role
+      const destination = ROLE_HOME[profile.role] ?? "/resident";
+      console.log("[Login] 🔄 Redirecting to:", destination);
+      router.push(destination);
+    } catch (err) {
+      console.error("[Login] ❌ Unhandled error:", err);
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen w-full overflow-hidden bg-white font-sans text-slate-900 dark:bg-[#161d15] dark:text-slate-100">
       <style>{`
@@ -45,19 +119,19 @@ export default function LoginPage() {
           {/* House scattered background pattern */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-[0.045]">
             {[
-              { top: "5%",  left: "18%", size: 90,  rotate: 0   },
-              { top: "8%",  left: "60%", size: 55,  rotate: 10  },
-              { top: "18%", left: "80%", size: 75,  rotate: -8  },
-              { top: "22%", left: "35%", size: 45,  rotate: 5   },
-              { top: "35%", left: "70%", size: 100, rotate: -5  },
-              { top: "40%", left: "20%", size: 60,  rotate: 12  },
-              { top: "52%", left: "50%", size: 50,  rotate: -10 },
-              { top: "58%", left: "82%", size: 80,  rotate: 3   },
-              { top: "65%", left: "30%", size: 70,  rotate: -6  },
-              { top: "72%", left: "65%", size: 45,  rotate: 8   },
-              { top: "80%", left: "15%", size: 95,  rotate: -3  },
-              { top: "85%", left: "48%", size: 55,  rotate: 15  },
-              { top: "90%", left: "78%", size: 65,  rotate: -12 },
+              { top: "5%", left: "18%", size: 90, rotate: 0 },
+              { top: "8%", left: "60%", size: 55, rotate: 10 },
+              { top: "18%", left: "80%", size: 75, rotate: -8 },
+              { top: "22%", left: "35%", size: 45, rotate: 5 },
+              { top: "35%", left: "70%", size: 100, rotate: -5 },
+              { top: "40%", left: "20%", size: 60, rotate: 12 },
+              { top: "52%", left: "50%", size: 50, rotate: -10 },
+              { top: "58%", left: "82%", size: 80, rotate: 3 },
+              { top: "65%", left: "30%", size: 70, rotate: -6 },
+              { top: "72%", left: "65%", size: 45, rotate: 8 },
+              { top: "80%", left: "15%", size: 95, rotate: -3 },
+              { top: "85%", left: "48%", size: 55, rotate: 15 },
+              { top: "90%", left: "78%", size: 65, rotate: -12 },
             ].map((h, i) => (
               <svg
                 key={i}
@@ -87,7 +161,7 @@ export default function LoginPage() {
             <div className="anim-logo flex items-center gap-4">
               <div className="w-10 h-10 rounded flex items-center justify-center" style={{ backgroundColor: "#2d5327" }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                  <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
                 </svg>
               </div>
               <span className="text-lg font-bold tracking-tight" style={{ color: "#2d5327" }}>Centro</span>
@@ -109,14 +183,24 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <form className="space-y-8">
+              <form onSubmit={handleLogin} className="space-y-8">
+                {/* Error Message */}
+                {error && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
+
                 <div className="anim-field1 space-y-2">
                   <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[#475569]">
-                    Username
+                    Email
                   </label>
                   <input
-                    type="text"
-                    placeholder="Enter your username"
+                    type="email"
+                    required
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full border-0 border-b border-slate-200 bg-transparent px-0 py-3 text-slate-900 placeholder:text-slate-400 transition-colors focus:border-[#2d5327] focus:outline-none focus:ring-0"
                   />
                 </div>
@@ -127,7 +211,10 @@ export default function LoginPage() {
                   </label>
                   <input
                     type="password"
+                    required
                     placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     className="w-full border-0 border-b border-slate-200 bg-transparent px-0 py-3 text-slate-900 placeholder:text-slate-400 transition-colors focus:border-[#2d5327] focus:outline-none focus:ring-0"
                   />
                 </div>
@@ -135,6 +222,7 @@ export default function LoginPage() {
                 <div className="anim-btn">
                   <button
                     type="submit"
+                    disabled={isLoading}
                     style={{
                       background: "linear-gradient(135deg, rgba(45,83,39,0.85) 0%, rgba(45,83,39,0.65) 100%)",
                       backdropFilter: "blur(12px)",
@@ -142,9 +230,9 @@ export default function LoginPage() {
                       border: "1px solid rgba(255,255,255,0.25)",
                       boxShadow: "0 8px 32px rgba(45,83,39,0.35), inset 0 1px 0 rgba(255,255,255,0.2)",
                     }}
-                    className="w-full rounded-lg py-4 text-sm font-bold tracking-wide text-white transition-all hover:brightness-110"
+                    className="w-full rounded-lg py-4 text-sm font-bold tracking-wide text-white transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    LOG IN
+                    {isLoading ? "LOGGING IN..." : "LOG IN"}
                   </button>
                 </div>
               </form>

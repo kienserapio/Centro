@@ -1,33 +1,41 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Resident } from "./ResidentListing";
+import type { Resident } from "./ResidentListing";
 
 interface AddResidentModalProps {
   onClose: () => void;
-  onAdd: (resident: Omit<Resident, "id" | "duesStatus" | "role">) => void;
-  existingAddresses: { phases: string[]; blocks: string[]; lots: string[] };
+  onAdd?: () => void;
+  onSave?: (resident: Resident) => void;
+  editResident?: Resident;
+  existingAddresses: { phases: string[]; blocks: string[]; lots: string[]; streets: string[] };
 }
 
-export function AddResidentModal({ onClose, onAdd, existingAddresses }: AddResidentModalProps) {
+export function AddResidentModal({ onClose, onAdd, onSave, editResident, existingAddresses }: AddResidentModalProps) {
+  const isEditing = !!editResident;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
+    name: editResident?.name ?? "",
+    email: editResident?.email ?? "",
+    phone: editResident?.phone ?? "",
     username: "",
     password: "",
+    street: existingAddresses.streets[0] ?? "Street 1",
     phase: existingAddresses.phases[0] ?? "Phase 1",
     block: existingAddresses.blocks[0] ?? "Block 1",
     lot: existingAddresses.lots[0] ?? "Lot 1",
     customPhase: "",
     customBlock: "",
     customLot: "",
+    customStreet: "",
     useCustomPhase: false,
     useCustomBlock: false,
     useCustomLot: false,
+    useCustomStreet: false,
   });
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -37,19 +45,63 @@ export function AddResidentModal({ onClose, onAdd, existingAddresses }: AddResid
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const phase = form.useCustomPhase ? form.customPhase : form.phase;
-    const block = form.useCustomBlock ? form.customBlock : form.block;
-    const lot = form.useCustomLot ? form.customLot : form.lot;
-    onAdd({
-      name: form.name,
-      email: form.email,
-      phone: form.phone,
-      address: `${phase}, ${block}, ${lot}`,
-      avatar: avatarPreview,
-    });
-    onClose();
+    setErrorMsg("");
+
+    // ── Editing an existing resident: call onSave (parent handles PATCH) ──
+    if (isEditing && editResident) {
+      onSave?.({
+        ...editResident,
+        name: form.name,
+        phone: form.phone,
+      });
+      onClose();
+      return;
+    }
+
+    // ── Creating a new resident ──
+    setIsSubmitting(true);
+    console.log("[AddResidentModal] 🚀 Submit clicked");
+
+    try {
+      const payload = {
+        email: form.email,
+        password: form.password,
+        full_name: form.name,
+        username: form.username,
+        role: "resident",
+        phone: form.phone,
+      };
+
+      console.log("[AddResidentModal] 📤 Sending to /api/admin/create-user:", {
+        ...payload,
+        password: "***",
+      });
+
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      console.log("[AddResidentModal] 📥 Response:", res.status, data);
+
+      if (!res.ok) {
+        setErrorMsg(data.error || "Something went wrong.");
+        return;
+      }
+
+      console.log("[AddResidentModal] ✅ Resident created successfully!");
+      onAdd?.();
+      onClose();
+    } catch (err) {
+      console.error("[AddResidentModal] ❌ Fetch error:", err);
+      setErrorMsg("Network error. Check the console for details.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -71,11 +123,11 @@ export function AddResidentModal({ onClose, onAdd, existingAddresses }: AddResid
         <div className="flex items-center justify-between px-8 pt-8 pb-5 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary">
-              <span className="material-icons-round">person_add</span>
+              <span className="material-icons-round">{isEditing ? "edit" : "person_add"}</span>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-[#111827]">Add New Resident</h3>
-              <p className="text-xs text-[#6B7280]">Register a new community member.</p>
+              <h3 className="text-xl font-bold text-[#111827]">{isEditing ? "Edit Resident" : "Add New Resident"}</h3>
+              <p className="text-xs text-[#6B7280]">{isEditing ? "Update resident details." : "Register a new community member."}</p>
             </div>
           </div>
           <button
@@ -303,15 +355,56 @@ export function AddResidentModal({ onClose, onAdd, existingAddresses }: AddResid
                 </button>
               </div>
             </div>
+
+            {/* Street */}
+            <div className="space-y-1.5">
+              <span className="text-xs text-[#6B7280] font-medium">Street</span>
+              <div className="flex gap-2 items-center">
+                {form.useCustomStreet ? (
+                  <input
+                    type="text"
+                    placeholder="e.g. Mango Street"
+                    value={form.customStreet}
+                    onChange={(e) => setForm({ ...form, customStreet: e.target.value })}
+                    className={selectClass}
+                  />
+                ) : (
+                  <select
+                    value={form.street}
+                    onChange={(e) => setForm({ ...form, street: e.target.value })}
+                    className={selectClass}
+                  >
+                    {existingAddresses.streets.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, useCustomStreet: !form.useCustomStreet, customStreet: "" })}
+                  className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg bg-[#F3F4F6] text-[#6B7280] hover:bg-secondary/10 hover:text-secondary transition-colors"
+                >
+                  {form.useCustomStreet ? "Use existing" : "Add new"}
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* Error Message */}
+          {errorMsg && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              {errorMsg}
+            </div>
+          )}
 
           {/* Submit */}
           <button
             type="submit"
-            className="w-full py-3.5 bg-secondary hover:bg-secondary/90 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+            className="w-full py-3.5 bg-secondary hover:bg-secondary/90 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="material-icons-round text-[18px]">person_add</span>
-            Add Resident
+            <span className="material-icons-round text-[18px]">{isEditing ? "save" : "person_add"}</span>
+            {isSubmitting ? "Saving..." : isEditing ? "Save Changes" : "Add Resident"}
           </button>
         </form>
       </div>

@@ -1,59 +1,134 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AdminSidebar } from "../_components/AdminSidebar";
 import { AdminMobileNav } from "../_components/AdminMobileNav";
 import { RolesListing, StaffMember } from "./_components/RolesListing";
 import { AddUserModal } from "./_components/AddUserModal";
+import { StaffRole } from "./_components/RoleBadge";
 
-const INITIAL_MEMBERS: StaffMember[] = [
-  {
-    id: 1,
-    name: "Alex Rivera",
-    email: "alex.r@centro.com",
-    phone: "+1 (555) 012-3456",
-    role: "Admin",
-    status: "Active",
-    avatar:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCmAoCxpphoasviwRKLnNQFXXgG2GpS0nhuEmSEIB2PsadO_Bi4WCcgSuhgMIhPUIGmWk2hRbU59hkaBuJDwaxJYw0gt21j1TI2QkR8g4qmOsaf1XejKPiMjcGVKM0Br4NvAYRhwWyKJJYDNaXFCRfNE7fr5uJNGR_jcaoVt7dhJY7x7VUzC4S4OgWymKnTYFKzQBrCfW8pSfP9Q0AH2ZlG_yCH8NPxkefhI0XNDoYEnJE1lZkxFtMBFZoMZJJQVjPfVmmuUXu60ZI",
-  },
-  {
-    id: 2,
-    name: "Sarah Jenkins",
-    email: "s.jenkins@centro.com",
-    phone: "+1 (555) 012-9876",
-    role: "Security",
-    status: "Active",
-    avatar:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAfcfTKb5KzA2jV1zf7tH4APgl1WcQRtw9k7gIWRnNQaJwTGzmTXGiCOm7ICsnVMSqKUYcANQVJWSVLzVAZ0yZBNehjpH_T_7Oqm5-Erl5qJAb7GcjpSv-c1Otz1Yijm7KkblzyDaVgVFaVvLMcdSGWLCWXBWpl64CF9-PlqWiqr_Kuhlsrh8nkOZ-8dEElsQyttDPQt9C8XYtwsBATaKvI9VpLRAGWZOTMODcqKAw76pkWDXHX0JrSvkBx0HqDi9dab4n1WEAHEDU",
-  },
-  {
-    id: 4,
-    name: "Emily Davis",
-    email: "e.davis@centro.com",
-    phone: "+1 (555) 012-3344",
-    role: "Security",
-    status: "Active",
-    avatar:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBi-1aCMM5X1YkOS5MRLF7LFjMeI90C-xy_gJyTCUnfK_mAWQYl2t4s17jwsyxBRUpvVa3NYF7P4mkB1V4wuyd34XqX7IZLQT13_LadzfCMoBqxoluajMms4mnm8Ou2paIIBxy-T4ChvXJMvpOYhGoK1-q-p9vi4MnmFps7MR43Vm--wt_WxUwzR8rswP2tq28BkjDw3WxbI7ycoR8ULATc9z8tUWBkL03IWxJ07rdzR1wHSU98N7njJ4iZa1-j3aA-uQhHBjL-PbQ",
-  },
-];
+/** Map DB role values to frontend display labels */
+function mapDbRole(dbRole: string): StaffRole {
+  switch (dbRole) {
+    case "admin":
+      return "Admin";
+    case "guard":
+      return "Security";
+    case "resident":
+      return "Resident";
+    default:
+      return "Resident";
+  }
+}
 
 export default function RolesPage() {
-  const [members, setMembers] = useState<StaffMember[]>(INITIAL_MEMBERS);
+  const [members, setMembers] = useState<StaffMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
 
-  function handleAddUser(newMember: Omit<StaffMember, "id">) {
-    setMembers((prev) => [...prev, { ...newMember, id: Date.now() }]);
+  /** Fetch all users from the database */
+  const fetchUsers = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/admin/users");
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error("[RolesPage] Failed to fetch users:", data.error);
+        return;
+      }
+
+      // Map the DB profiles to the StaffMember shape the listing expects
+      const mapped: StaffMember[] = data.map(
+        (p: { id: string; full_name: string; role: string; phone: string; avatar_url: string | null; is_active: boolean }) => ({
+          id: p.id,
+          name: p.full_name || "—",
+          email: "",
+          phone: p.phone ?? "",
+          role: mapDbRole(p.role),
+          status: p.is_active ? "Active" as const : "Inactive" as const,
+          avatar: p.avatar_url ?? "",
+        })
+      );
+
+      setMembers(mapped);
+    } catch (err) {
+      console.error("[RolesPage] Fetch error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch users on initial mount
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  /** After creating a user, re-fetch from the database */
+  function handleUserCreated() {
+    fetchUsers();
   }
 
-  function handleSaveUser(updated: StaffMember) {
-    setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+  /** After saving edits, call PATCH API and re-fetch */
+  async function handleSaveUser(updated: StaffMember) {
+    // Map the frontend role label back to DB enum
+    const roleMap: Record<string, string> = {
+      Admin: "admin",
+      Security: "guard",
+      Resident: "resident",
+    };
+
+    try {
+      const res = await fetch(`/api/admin/users/${updated.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: updated.name,
+          phone: updated.phone,
+          role: roleMap[updated.role] ?? updated.role.toLowerCase(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[RolesPage] Save failed:", data.error);
+        alert(data.error || "Failed to save changes.");
+        return;
+      }
+
+      console.log("[RolesPage] ✅ User updated");
+      fetchUsers();
+    } catch (err) {
+      console.error("[RolesPage] Save error:", err);
+      alert("Network error while saving.");
+    }
   }
 
-  function handleRemove(id: number) {
-    setMembers((prev) => prev.filter((m) => m.id !== id));
+  /** Delete user via API and re-fetch */
+  async function handleRemove(id: string) {
+    if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[RolesPage] Delete failed:", data.error);
+        alert(data.error || "Failed to delete user.");
+        return;
+      }
+
+      console.log("[RolesPage] ✅ User deleted");
+      fetchUsers();
+    } catch (err) {
+      console.error("[RolesPage] Delete error:", err);
+      alert("Network error while deleting.");
+    }
   }
 
   return (
@@ -82,11 +157,24 @@ export default function RolesPage() {
           </header>
 
           {/* Roles Listing */}
-          <RolesListing
-            members={members}
-            onEdit={(member) => setEditingMember(member)}
-            onRemove={handleRemove}
-          />
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20 text-[#6B7280]">
+              <span className="material-icons-round animate-spin mr-2">refresh</span>
+              Loading users...
+            </div>
+          ) : members.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-[#6B7280]">
+              <span className="material-icons-round text-5xl mb-3">group_off</span>
+              <p className="font-medium">No users found</p>
+              <p className="text-sm mt-1">Click &quot;Add New User&quot; to create one.</p>
+            </div>
+          ) : (
+            <RolesListing
+              members={members}
+              onEdit={(member) => setEditingMember(member)}
+              onRemove={handleRemove}
+            />
+          )}
         </div>
       </div>
 
@@ -95,7 +183,7 @@ export default function RolesPage() {
       {isModalOpen && (
         <AddUserModal
           onClose={() => setIsModalOpen(false)}
-          onAdd={handleAddUser}
+          onAdd={handleUserCreated}
         />
       )}
 

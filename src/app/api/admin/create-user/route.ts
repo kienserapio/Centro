@@ -1,3 +1,12 @@
+/**
+ * ┌──────────────────────────────────────────────────────────┐
+ * │  CREATE USER — Register a new Supabase auth user         │
+ * │  POST: Creates user in auth.users via service role key   │
+ * │        Trigger auto-creates a profiles row               │
+ * │  Used by: Add User modal (Roles) & Add Resident modal    │
+ * └──────────────────────────────────────────────────────────┘
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";

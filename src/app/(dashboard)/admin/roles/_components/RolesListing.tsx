@@ -1,7 +1,7 @@
 import { RoleBadge, StaffRole } from "./RoleBadge";
 
 export interface StaffMember {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -13,7 +13,7 @@ export interface StaffMember {
 interface RolesListingProps {
   members: StaffMember[];
   onEdit?: (member: StaffMember) => void;
-  onRemove?: (id: number) => void;
+  onRemove?: (id: string) => void;
 }
 
 function StatusIndicator({ status }: { status: StaffMember["status"] }) {

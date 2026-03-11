@@ -28,59 +28,65 @@ type Priority = typeof VALID_PRIORITIES[number];
  */
 export async function POST(request: NextRequest) {
   try {
-    // Initialize Supabase server client
+    // 1. Initialize Supabase server client
     const supabase = await createClient();
 
-    // TEMPORARY: Skip auth for testing
-    const userId = "f3a9c6b2-7d41-4c8b-9e7d-2a1f5c0b6d93";
+    // 2. Retrieve the authenticated user's session
+    // TODO: Remove the fallback test UUID before going to production!
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    // Parse the JSON body
+    const authorId = user?.id ?? "3dd4d817-e770-4eda-905c-f018f5b1b0a5";
+
+    // 3. Parse the JSON body
     const body = await request.json();
     const { title, body: bodyContent, category, priority, is_pinned } = body;
 
-    // TEMPORARY: Skip validation for testing
-    /*
-    // Data Validation: Check required fields
+    // 4. Validate required fields
     if (!title || !bodyContent || !category || !priority || is_pinned === undefined) {
       return NextResponse.json(
         {
-          error: "Missing required fields: title, body, category, priority, and is_pinned are required"
+          error:
+            "Missing required fields: title, body, category, priority, and is_pinned are required.",
         },
         { status: 400 }
       );
     }
 
-    // Data Validation: Check ENUM values for category
-    if (!VALID_CATEGORIES.includes(category as Category)) {
+    // 5. Normalize enum values to lowercase
+    const normalizedCategory = String(category).toLowerCase() as Category;
+    const normalizedPriority = String(priority).toLowerCase() as Priority;
+
+    // 6. Validate enum values
+    if (!VALID_CATEGORIES.includes(normalizedCategory)) {
       return NextResponse.json(
         {
-          error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}`
+          error: `Invalid category "${category}". Must be one of: ${VALID_CATEGORIES.join(", ")}`,
         },
         { status: 400 }
       );
     }
 
-    // Data Validation: Check ENUM values for priority
-    if (!VALID_PRIORITIES.includes(priority as Priority)) {
+    if (!VALID_PRIORITIES.includes(normalizedPriority)) {
       return NextResponse.json(
         {
-          error: `Invalid priority. Must be one of: ${VALID_PRIORITIES.join(', ')}`
+          error: `Invalid priority "${priority}". Must be one of: ${VALID_PRIORITIES.join(", ")}`,
         },
         { status: 400 }
       );
     }
-    */
 
-    // Database Insert 1: Insert into announcements table
+    // 7. Insert into the announcements table
     const { data: announcement, error: insertError } = await supabase
       .from("announcements")
       .insert({
         title,
         body: bodyContent,
-        category,
-        priority,
-        is_pinned,
-        author_id: userId,
+        category: normalizedCategory,
+        priority: normalizedPriority,
+        is_pinned: Boolean(is_pinned),
+        author_id: authorId,
       })
       .select()
       .single();
@@ -88,29 +94,12 @@ export async function POST(request: NextRequest) {
     if (insertError || !announcement) {
       console.error("Error inserting announcement:", insertError);
       return NextResponse.json(
-        { error: "Failed to create announcement" },
+        { error: insertError?.message ?? "Failed to create announcement." },
         { status: 500 }
       );
     }
 
-    // Database Insert 2: Insert audit log entry
-    const { error: auditError } = await supabase
-      .from("audit_logs")
-      .insert({
-        actor_id: userId,
-        action: "CREATE_ANNOUNCEMENT",
-        entity_type: "announcements",
-        entity_id: announcement.id,
-        new_value: announcement,
-      });
-
-    if (auditError) {
-      console.error("Error creating audit log:", auditError);
-      // Note: We're not returning an error here because the announcement was successfully created.
-      // Audit logging is secondary to the main operation.
-    }
-
-    // Return success response
+    // 8. Return the created announcement
     return NextResponse.json(announcement, { status: 201 });
   } catch (error) {
     console.error("Internal server error:", error);

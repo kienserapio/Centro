@@ -16,6 +16,8 @@ const ROLES: StaffRole[] = ["Admin", "Security"];
 export function AddUserModal({ onClose, onAdd, onSave, editMember }: AddUserModalProps) {
   const isEditing = !!editMember;
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [form, setForm] = useState({
     name: editMember?.name ?? "",
     email: editMember?.email ?? "",
@@ -25,8 +27,11 @@ export function AddUserModal({ onClose, onAdd, onSave, editMember }: AddUserModa
     role: (editMember?.role ?? "Admin") as StaffRole,
   });
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setErrorMsg("");
+
+    // ── Editing an existing user: use the parent callback ──
     if (isEditing && editMember) {
       onSave?.({
         ...editMember,
@@ -35,7 +40,55 @@ export function AddUserModal({ onClose, onAdd, onSave, editMember }: AddUserModa
         phone: form.phone,
         role: form.role,
       });
-    } else {
+      onClose();
+      return;
+    }
+
+    // ── Creating a new user: call the API ──
+    console.log("[AddUserModal] 🚀 Submit clicked");
+    console.log("[AddUserModal] Form data:", { ...form, password: "***" });
+
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        email: form.email,
+        password: form.password,
+        full_name: form.name,      // maps form.name → API's full_name
+        username: form.username,
+        role: form.role.toLowerCase(), // "Admin" → "admin", "Security" → "guard" mapping below
+        phone: form.phone,
+      };
+
+      // Map frontend role labels to database enum values
+      const roleMap: Record<string, string> = {
+        admin: "admin",
+        security: "guard",
+      };
+      payload.role = roleMap[payload.role] ?? payload.role;
+
+      console.log("[AddUserModal] 📤 Sending to /api/admin/create-user:", {
+        ...payload,
+        password: "***",
+      });
+
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      console.log("[AddUserModal] 📥 Response:", res.status, data);
+
+      if (!res.ok) {
+        setErrorMsg(data.error || "Something went wrong.");
+        return;
+      }
+
+      console.log("[AddUserModal] ✅ User created successfully!");
+
+      // Also notify parent so the list can refresh
       onAdd?.({
         name: form.name,
         email: form.email,
@@ -44,8 +97,14 @@ export function AddUserModal({ onClose, onAdd, onSave, editMember }: AddUserModa
         status: "Active",
         avatar: "",
       });
+
+      onClose();
+    } catch (err) {
+      console.error("[AddUserModal] ❌ Fetch error:", err);
+      setErrorMsg("Network error. Check the console for details.");
+    } finally {
+      setIsSubmitting(false);
     }
-    onClose();
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -188,12 +247,24 @@ export function AddUserModal({ onClose, onAdd, onSave, editMember }: AddUserModa
             </div>
           </div>
 
+          {/* Error Message */}
+          {errorMsg && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              {errorMsg}
+            </div>
+          )}
+
           {/* Submit */}
           <button
             type="submit"
-            className="w-full py-3.5 bg-secondary hover:bg-secondary/90 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98]"
+            disabled={isSubmitting}
+            className="w-full py-3.5 bg-secondary hover:bg-secondary/90 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isEditing ? "Save Changes" : "Create Account"}
+            {isSubmitting
+              ? "Creating..."
+              : isEditing
+                ? "Save Changes"
+                : "Create Account"}
           </button>
         </form>
       </div>

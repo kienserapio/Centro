@@ -1,68 +1,77 @@
-type Stat = {
-  label: string;
-  value: string;
-  icon?: string;
-  extra: React.ReactNode;
-  cardClass: string;
-  iconBg?: string;
-  iconColor?: string;
-};
+"use client";
 
-const STATS: Stat[] = [
-  {
-    label: "Dues Collection",
-    value: "₱142.5k",
-    cardClass: "bg-white border border-[#E5E7EB]",
-    extra: (
-      <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 w-fit px-2 py-1 rounded-full">
-        <span className="material-icons-round text-sm">trending_up</span>
-        12% from last month
-      </div>
-    ),
-  },
-  {
-    label: "Active Residents",
-    value: "1,248",
-    icon: "people_alt",
-    iconBg: "bg-secondary/10",
-    iconColor: "text-secondary",
-    cardClass: "bg-white border border-[#E5E7EB]",
-    extra: (
-      <div className="flex items-center gap-1 mt-2">
-        {["bg-secondary", "bg-secondary/70", "bg-secondary/50"].map((c, i) => (
-          <div key={i} className={`w-7 h-7 rounded-full ${c} border-2 border-white`} />
-        ))}
-        <div className="w-7 h-7 rounded-full border-2 border-white bg-[#F8F9FA] flex items-center justify-center text-[10px] font-bold text-[#6B7280]">
-          +24
-        </div>
-      </div>
-    ),
-  },
-  {
-    label: "Pending Approvals",
-    value: "14",
-    icon: "pending_actions",
-    iconBg: "bg-orange-100",
-    iconColor: "text-orange-500",
-    cardClass: "bg-white border border-[#E5E7EB]",
-    extra: (
-      <p className="text-xs text-[#6B7280] mt-2 italic">Requiring your attention</p>
-    ),
-  },
-  {
-    label: "YTD Revenue",
-    value: "₱1.2M",
-    icon: "account_balance_wallet",
-    iconBg: "bg-white/20",
-    iconColor: "text-white",
-    cardClass: "bg-secondary border border-secondary",
-    extra: (
-      <p className="text-xs text-white/60 mt-2">Fiscal year 2025</p>
-    ),
-  },
-];
+import { useState, useEffect } from "react";
 
 export function StatsCards() {
+  const [residentCount, setResidentCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/residents")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: unknown[]) => setResidentCount(data.length))
+      .catch(() => setResidentCount(null));
+  }, []);
+
+  const displayCount =
+    residentCount === null ? "—" : residentCount.toLocaleString();
+
+  const STATS = [
+    {
+      label: "Dues Collection",
+      value: "₱142.5k",
+      cardClass: "bg-white border border-[#E5E7EB]",
+      icon: undefined as string | undefined,
+      iconBg: undefined as string | undefined,
+      iconColor: undefined as string | undefined,
+      extra: (
+        <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 w-fit px-2 py-1 rounded-full">
+          <span className="material-icons-round text-sm">trending_up</span>
+          12% from last month
+        </div>
+      ),
+    },
+    {
+      label: "Active Residents",
+      value: displayCount,
+      icon: "people_alt",
+      iconBg: "bg-secondary/10",
+      iconColor: "text-secondary",
+      cardClass: "bg-white border border-[#E5E7EB]",
+      extra: (
+        <div className="flex items-center gap-1 mt-2">
+          {["bg-secondary", "bg-secondary/70", "bg-secondary/50"].map((c, i) => (
+            <div key={i} className={`w-7 h-7 rounded-full ${c} border-2 border-white`} />
+          ))}
+          <div className="w-7 h-7 rounded-full border-2 border-white bg-[#F8F9FA] flex items-center justify-center text-[10px] font-bold text-[#6B7280]">
+            {residentCount !== null && residentCount > 3 ? `+${residentCount - 3}` : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      label: "Pending Approvals",
+      value: "14",
+      icon: "pending_actions",
+      iconBg: "bg-orange-100",
+      iconColor: "text-orange-500",
+      cardClass: "bg-white border border-[#E5E7EB]",
+      extra: (
+        <p className="text-xs text-[#6B7280] mt-2 italic">Requiring your attention</p>
+      ),
+    },
+    {
+      label: "YTD Revenue",
+      value: "₱1.2M",
+      icon: "account_balance_wallet",
+      iconBg: "bg-white/20",
+      iconColor: "text-white",
+      cardClass: "bg-secondary border border-secondary",
+      extra: (
+        <p className="text-xs text-white/60 mt-2">Fiscal year 2025</p>
+      ),
+    },
+  ];
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {STATS.map((stat, i) => {
@@ -97,14 +106,10 @@ export function StatsCards() {
                 </div>
               )}
               {i === 0 && (
-                /* Donut ring for dues collection */
                 <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
                   <div
                     className="w-full h-full rounded-full"
-                    style={{
-                      background:
-                        "conic-gradient(#2D5A27 0% 85%, #E5E7EB 85% 100%)",
-                    }}
+                    style={{ background: "conic-gradient(#2D5A27 0% 85%, #E5E7EB 85% 100%)" }}
                   />
                   <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center text-[10px] font-bold text-[#111827]">
                     85%

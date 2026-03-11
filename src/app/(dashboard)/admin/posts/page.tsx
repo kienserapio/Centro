@@ -1,243 +1,438 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from "react";
+import { AdminSidebar } from "../_components/AdminSidebar";
+import { AdminMobileNav } from "../_components/AdminMobileNav";
+import {
+  EditAnnouncementModal,
+  type AnnouncementItem,
+} from "./_components/EditAnnouncementModal";
 
-interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  category: string;
-  priority: string;
-  is_pinned: boolean;
-  created_at: string;
+// ── Category / Priority visual config ────────────────────────────────────
+
+type CategoryConfig = {
+  icon: string;
+  iconBg: string;
+  iconColor: string;
+  badgeClass: string;
+};
+
+const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
+  meeting: {
+    icon: "groups",
+    iconBg: "bg-secondary/10",
+    iconColor: "text-secondary",
+    badgeClass: "bg-secondary/10 text-secondary",
+  },
+  general: {
+    icon: "campaign",
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-500",
+    badgeClass: "bg-slate-100 text-slate-600",
+  },
+  utility: {
+    icon: "build",
+    iconBg: "bg-blue-50",
+    iconColor: "text-blue-500",
+    badgeClass: "bg-blue-50 text-blue-600",
+  },
+  security: {
+    icon: "shield",
+    iconBg: "bg-amber-50",
+    iconColor: "text-amber-600",
+    badgeClass: "bg-amber-50 text-amber-700",
+  },
+  emergency: {
+    icon: "warning",
+    iconBg: "bg-red-50",
+    iconColor: "text-red-500",
+    badgeClass: "bg-red-50 text-red-600",
+  },
+};
+
+const PRIORITY_CLASS: Record<string, string> = {
+  low: "bg-green-50 text-green-700",
+  medium: "bg-amber-50 text-amber-700",
+  high: "bg-orange-50 text-orange-700",
+  emergency: "bg-red-50 text-red-700",
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-export default function PostsPage() {
-  const [formData, setFormData] = useState({
-    title: '',
-    body: '',
-    category: 'general',
-    priority: 'low',
-    is_pinned: false,
-  });
+// ── Page ──────────────────────────────────────────────────────────────────
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+const EMPTY_FORM = {
+  title: "",
+  body: "",
+  category: "general",
+  priority: "low",
+  is_pinned: false,
+};
+
+export default function PostsPage() {
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch announcements on page load
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
+  const [editingItem, setEditingItem] = useState<AnnouncementItem | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchAnnouncements = async () => {
+  // ── Fetch ─────────────────────────────────────────────────────────────
+
+  const fetchAnnouncements = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/announcements');
-      if (response.ok) {
-        const data = await response.json();
-        setAnnouncements(data || []);
+      const res = await fetch("/api/admin/announcements");
+      if (res.ok) {
+        const data = await res.json();
+        setAnnouncements(Array.isArray(data) ? data : []);
       }
-    } catch (error) {
-      console.error('Error fetching announcements:', error);
+    } catch (err) {
+      console.error("[PostsPage] fetch error:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleInputChange = (
+  useEffect(() => {
+    fetchAnnouncements();
+  }, [fetchAnnouncements]);
+
+  // ── Create ────────────────────────────────────────────────────────────
+
+  function handleFormChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, type, value, checked } = e.target as HTMLInputElement;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
+  ) {
+    const { name, type, value } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setSubmitting(true);
+    setSubmitError("");
 
     try {
-      const response = await fetch('/api/admin/announcements', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const res = await fetch("/api/admin/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
       });
 
-      if (response.ok) {
-        alert('Success');
-        setFormData({
-          title: '',
-          body: '',
-          category: 'general',
-          priority: 'low',
-          is_pinned: false,
-        });
-        // Refresh announcements list
-        fetchAnnouncements();
-      } else {
-        alert('Error');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSubmitError(data.error ?? "Failed to create announcement.");
+        return;
       }
-    } catch (error) {
-      alert('Error');
+
+      setForm({ ...EMPTY_FORM });
+      setAnnouncements((prev) => [data, ...prev]);
+    } catch {
+      setSubmitError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-  };
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this announcement? This cannot be undone.")) return;
+
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/admin/announcements/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+      } else {
+        const data = await res.json();
+        alert(data.error ?? "Failed to delete.");
+      }
+    } catch {
+      alert("Network error. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  // ── Edit callback ─────────────────────────────────────────────────────
+
+  function handleSaved(updated: AnnouncementItem) {
+    setAnnouncements((prev) =>
+      prev.map((a) => (a.id === updated.id ? updated : a))
+    );
+  }
+
+  // ── Shared input styles ───────────────────────────────────────────────
+
+  const inputClass =
+    "w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary transition";
+  const labelClass = "text-xs font-bold text-[#6B7280] uppercase tracking-wide";
+
+  // ── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Announcements</h1>
+    <div className="flex min-h-screen relative bg-white">
+      <AdminSidebar />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Form Section */}
-        <div className="lg:col-span-1">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-4">Create Announcement</h2>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {/* Title */}
-              <div>
-                <label className="block mb-1 font-medium">Title *</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full border p-2 rounded"
-                  placeholder="Enter title"
-                />
-              </div>
+      <div className="flex-1 lg:ml-64">
+        <div className="p-4 lg:p-8 pb-24 lg:pb-8">
 
-              {/* Body */}
-              <div>
-                <label className="block mb-1 font-medium">Body *</label>
-                <textarea
-                  name="body"
-                  value={formData.body}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full border p-2 rounded"
-                  placeholder="Enter body"
-                  rows={4}
-                />
-              </div>
+          {/* Page Header */}
+          <header className="mb-8">
+            <h1 className="text-[30px] font-bold tracking-tight text-[#111827]">
+              Announcements
+            </h1>
+            <p className="text-[#6B7280] mt-1">
+              Create and manage community posts visible to all residents.
+            </p>
+          </header>
 
-              {/* Category */}
-              <div>
-                <label className="block mb-1 font-medium">Category *</label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full border p-2 rounded"
-                >
-                  <option value="general">General</option>
-                  <option value="utility">Utility</option>
-                  <option value="security">Security</option>
-                  <option value="meeting">Meeting</option>
-                  <option value="emergency">Emergency</option>
-                </select>
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-              {/* Priority */}
-              <div>
-                <label className="block mb-1 font-medium">Priority *</label>
-                <select
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full border p-2 rounded"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="emergency">Emergency</option>
-                </select>
-              </div>
-
-              {/* Is Pinned */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="is_pinned"
-                  id="is_pinned"
-                  checked={formData.is_pinned}
-                  onChange={handleInputChange}
-                  className="border p-2 rounded"
-                />
-                <label htmlFor="is_pinned" className="font-medium">Is Pinned</label>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded font-medium"
-              >
-                Create Announcement
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* Announcements List Section */}
-        <div className="lg:col-span-2">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-4">Recent Announcements</h2>
-
-            {loading ? (
-              <p className="text-gray-500">Loading...</p>
-            ) : announcements.length === 0 ? (
-              <p className="text-gray-500">No announcements yet</p>
-            ) : (
-              <div className="space-y-4">
-                {announcements.map((announcement) => (
-                  <div
-                    key={announcement.id}
-                    className="border-l-4 border-blue-500 bg-gray-50 p-4 rounded"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-lg">{announcement.title}</h3>
-                      {announcement.is_pinned && (
-                        <span className="bg-yellow-200 text-yellow-800 text-xs font-bold px-2 py-1 rounded">
-                          PINNED
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="text-gray-700 mb-3">{announcement.body}</p>
-
-                    <div className="flex gap-2 mb-2 flex-wrap">
-                      <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                        {announcement.category}
-                      </span>
-                      <span
-                        className={`text-xs px-2 py-1 rounded font-medium ${announcement.priority === 'emergency'
-                          ? 'bg-red-100 text-red-800'
-                          : announcement.priority === 'high'
-                            ? 'bg-orange-100 text-orange-800'
-                            : announcement.priority === 'medium'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-green-100 text-green-800'
-                          }`}
-                      >
-                        {announcement.priority}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-gray-500">
-                      {new Date(announcement.created_at).toLocaleDateString()} at{' '}
-                      {new Date(announcement.created_at).toLocaleTimeString()}
-                    </p>
+            {/* ── Create Form ─────────────────────────────────────────── */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary shrink-0">
+                    <span className="material-icons-round">campaign</span>
                   </div>
-                ))}
+                  <div>
+                    <h2 className="text-base font-bold text-[#111827]">New Post</h2>
+                    <p className="text-xs text-[#6B7280]">Publish to all residents</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleCreate} className="space-y-4">
+                  {submitError && (
+                    <p className="text-sm text-rose-600 bg-rose-50 border border-rose-100 px-4 py-3 rounded-xl">
+                      {submitError}
+                    </p>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className={labelClass}>Title *</label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={form.title}
+                      onChange={handleFormChange}
+                      required
+                      className={inputClass}
+                      placeholder="e.g. Water interruption this Friday"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className={labelClass}>Message *</label>
+                    <textarea
+                      name="body"
+                      value={form.body}
+                      onChange={handleFormChange}
+                      required
+                      className={inputClass}
+                      placeholder="Write the full announcement here…"
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className={labelClass}>Category *</label>
+                      <select
+                        name="category"
+                        value={form.category}
+                        onChange={handleFormChange}
+                        className={inputClass}
+                      >
+                        <option value="general">General</option>
+                        <option value="utility">Utility</option>
+                        <option value="security">Security</option>
+                        <option value="meeting">Meeting</option>
+                        <option value="emergency">Emergency</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className={labelClass}>Priority *</label>
+                      <select
+                        name="priority"
+                        value={form.priority}
+                        onChange={handleFormChange}
+                        className={inputClass}
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="emergency">Emergency</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Pin toggle */}
+                  <label className="flex items-center gap-3 cursor-pointer select-none py-1">
+                    <div className="relative shrink-0">
+                      <input
+                        type="checkbox"
+                        name="is_pinned"
+                        id="is_pinned"
+                        checked={form.is_pinned}
+                        onChange={handleFormChange}
+                        className="sr-only"
+                      />
+                      <div
+                        className={`w-10 h-5 rounded-full transition-colors ${
+                          form.is_pinned ? "bg-secondary" : "bg-[#E5E7EB]"
+                        }`}
+                      />
+                      <div
+                        className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          form.is_pinned ? "translate-x-5" : ""
+                        }`}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-[#374151]">Pin this post</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-3.5 bg-secondary hover:bg-secondary/90 disabled:opacity-60 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <span className="material-icons-round text-[18px]">send</span>
+                    {submitting ? "Publishing…" : "Publish Announcement"}
+                  </button>
+                </form>
               </div>
-            )}
+            </div>
+
+            {/* ── Announcements List ───────────────────────────────────── */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-[#111827]">All Posts</h2>
+                <span className="text-sm text-[#6B7280]">
+                  {loading ? "—" : `${announcements.length} post${announcements.length !== 1 ? "s" : ""}`}
+                </span>
+              </div>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-20 text-[#6B7280]">
+                  <span className="material-icons-round animate-spin mr-2">refresh</span>
+                  Loading…
+                </div>
+              ) : announcements.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-[#6B7280]">
+                  <span className="material-icons-round text-5xl mb-3">campaign</span>
+                  <p className="font-medium">No posts yet</p>
+                  <p className="text-sm mt-1">Create your first announcement using the form.</p>
+                </div>
+              ) : (
+                announcements.map((item) => {
+                  const cfg = CATEGORY_CONFIG[item.category] ?? CATEGORY_CONFIG.general;
+                  const isDeleting = deletingId === item.id;
+
+                  return (
+                    <article
+                      key={item.id}
+                      className="bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5 transition-all hover:shadow-md hover:border-secondary/30"
+                    >
+                      {/* Card top row */}
+                      <div className="flex items-start gap-4">
+                        <div
+                          className={`w-11 h-11 rounded-full ${cfg.iconBg} flex items-center justify-center shrink-0`}
+                        >
+                          <span className={`material-icons-round ${cfg.iconColor}`}>
+                            {cfg.icon}
+                          </span>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          {/* Badges row */}
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span
+                              className={`px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider ${cfg.badgeClass}`}
+                            >
+                              {item.category}
+                            </span>
+                            <span
+                              className={`px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider ${
+                                PRIORITY_CLASS[item.priority] ?? PRIORITY_CLASS.low
+                              }`}
+                            >
+                              {item.priority}
+                            </span>
+                            {item.is_pinned && (
+                              <span className="px-2.5 py-0.5 text-xs font-bold rounded-full uppercase tracking-wider bg-amber-50 text-amber-700">
+                                📌 Pinned
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="text-base font-bold text-[#111827] mb-1 truncate">
+                            {item.title}
+                          </h3>
+                          <p className="text-sm text-[#6B7280] leading-relaxed line-clamp-2">
+                            {item.body}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-2">{formatDate(item.created_at)}</p>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => setEditingItem(item)}
+                            title="Edit"
+                            className="p-2 text-[#6B7280] hover:bg-[#F3F4F6] rounded-lg transition-colors"
+                          >
+                            <span className="material-icons-round text-[20px]">edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            disabled={isDeleting}
+                            title="Delete"
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-40"
+                          >
+                            <span className="material-icons-round text-[20px]">
+                              {isDeleting ? "hourglass_empty" : "delete"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      <AdminMobileNav />
+
+      {editingItem && (
+        <EditAnnouncementModal
+          item={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSaved={handleSaved}
+        />
+      )}
     </div>
   );
 }

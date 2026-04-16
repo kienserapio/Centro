@@ -75,6 +75,7 @@ interface Props {
 export function IncidentTable({ search, newIncident }: Props) {
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [page, setPage] = useState(1);
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
   const allIncidents = useMemo(
     () => (newIncident ? [newIncident, ...INITIAL_INCIDENTS] : INITIAL_INCIDENTS),
@@ -113,10 +114,71 @@ export function IncidentTable({ search, newIncident }: Props) {
     setPage(1);
   }
 
+  function handleSelectIncident(incident: Incident) {
+    setSelectedIncident(incident);
+  }
+
+  function clearSelectedIncident() {
+    setSelectedIncident(null);
+  }
+
+  const printedAt = new Date().toLocaleString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   return (
     <div className="space-y-5">
+      {selectedIncident && (
+        <div className="rounded-2xl border border-[#E5E7EB] bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#E5E7EB] bg-[#F8F9FA]">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">
+                Report Details
+              </p>
+              <h3 className="text-base font-bold text-[#111827] mt-1">{selectedIncident.category}</h3>
+            </div>
+            <button
+              type="button"
+              onClick={clearSelectedIncident}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827] hover:bg-[#F8F9FA] transition-colors"
+              aria-label="Close incident details"
+            >
+              <span className="material-icons-round text-[18px]">close</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-5">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">Date & Time</p>
+              <p className="text-sm font-semibold text-[#111827] mt-1">{selectedIncident.date}</p>
+              <p className="text-sm text-[#6B7280]">{selectedIncident.time}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">Reporting Resident</p>
+              <p className="text-sm font-semibold text-[#111827] mt-1">{selectedIncident.reporter}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">Responding Guard</p>
+              <p className="text-sm font-semibold text-[#111827] mt-1">{selectedIncident.guardName}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">Status</p>
+              <p className="text-sm font-semibold text-[#111827] mt-1">{STATUS_CONFIG[selectedIncident.status].label}</p>
+            </div>
+            <div className="md:col-span-2 xl:col-span-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6B7280]">Summary</p>
+              <p className="text-sm text-[#374151] mt-1 leading-6">{selectedIncident.summary}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filter chips */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
         {FILTERS.map((f) => (
           <button
             key={f.value}
@@ -133,12 +195,20 @@ export function IncidentTable({ search, newIncident }: Props) {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm print:hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#F8F9FA] border-b border-[#E5E7EB]">
-                {["Date / Time", "Category", "Reporting Resident", "Responding Guard", "Resolution Summary", "Status"].map(
+                {[
+                  "Date / Time",
+                  "Category",
+                  "Reporting Resident",
+                  "Responding Guard",
+                  "Resolution Summary",
+                  "Status",
+                  "Action",
+                ].map(
                   (h) => (
                     <th
                       key={h}
@@ -153,17 +223,30 @@ export function IncidentTable({ search, newIncident }: Props) {
             <tbody className="divide-y divide-[#E5E7EB]">
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-[#6B7280]">
+                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-[#6B7280]">
                     No incidents match your filters.
                   </td>
                 </tr>
               ) : (
                 paginated.map((incident) => {
                   const cfg = STATUS_CONFIG[incident.status];
+                  const isSelected = selectedIncident?.id === incident.id;
                   return (
                     <tr
                       key={incident.id}
-                      className="hover:bg-[#F8F9FA] transition-colors"
+                      onClick={() => handleSelectIncident(incident)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSelectIncident(incident);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-pressed={isSelected}
+                      className={`cursor-pointer outline-none transition-colors ${
+                        isSelected ? "bg-secondary/5" : "hover:bg-[#F8F9FA]"
+                      }`}
                     >
                       {/* Date */}
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -208,6 +291,20 @@ export function IncidentTable({ search, newIncident }: Props) {
                             {cfg.label}
                           </span>
                         </div>
+                      </td>
+
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleSelectIncident(incident);
+                          }}
+                          className="text-[#6B7280] hover:text-secondary transition-colors"
+                          aria-label={`Open details for ${incident.category}`}
+                        >
+                          <span className="material-icons-round text-xl">more_vert</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -258,6 +355,56 @@ export function IncidentTable({ search, newIncident }: Props) {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Print-only report */}
+      <div className="hidden print:block">
+        <div className="mb-4 border-b border-black pb-3">
+          <h2 className="text-xl font-bold">Centro Security Incident Logs</h2>
+          <p className="text-sm">Printable Incident Report</p>
+          <p className="text-xs mt-1">Generated: {printedAt}</p>
+          <p className="text-xs">
+            Filters: {statusFilter === "all" ? "All statuses" : STATUS_CONFIG[statusFilter].label}
+            {search.trim() ? ` | Search: ${search.trim()}` : ""}
+          </p>
+        </div>
+
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr>
+              <th className="border border-black px-2 py-1 text-left">Date</th>
+              <th className="border border-black px-2 py-1 text-left">Time</th>
+              <th className="border border-black px-2 py-1 text-left">Category</th>
+              <th className="border border-black px-2 py-1 text-left">Reporter</th>
+              <th className="border border-black px-2 py-1 text-left">Guard</th>
+              <th className="border border-black px-2 py-1 text-left">Summary</th>
+              <th className="border border-black px-2 py-1 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="border border-black px-2 py-3 text-center">
+                  No incidents match the selected filters.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((incident) => (
+                <tr key={`print-${incident.id}`}>
+                  <td className="border border-black px-2 py-1 align-top">{incident.date}</td>
+                  <td className="border border-black px-2 py-1 align-top">{incident.time}</td>
+                  <td className="border border-black px-2 py-1 align-top">{incident.category}</td>
+                  <td className="border border-black px-2 py-1 align-top">{incident.reporter}</td>
+                  <td className="border border-black px-2 py-1 align-top">{incident.guardName}</td>
+                  <td className="border border-black px-2 py-1 align-top">{incident.summary}</td>
+                  <td className="border border-black px-2 py-1 align-top">
+                    {STATUS_CONFIG[incident.status].label}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

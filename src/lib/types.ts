@@ -16,11 +16,23 @@ export interface UserProfile {
 // Dues
 // ---------------------------------------------------------------------------
 
+export const DUE_BILLING_FEATURE_OPTIONS = [
+  { value: "facilities", label: "Facilities" },
+  { value: "rentable_items", label: "Rentable Items" },
+  { value: "parks", label: "Parks" },
+  { value: "clubhouse", label: "Clubhouse" },
+  { value: "guest_parking", label: "Guest Parking" },
+] as const;
+
+export type DueBillingFeature = (typeof DUE_BILLING_FEATURE_OPTIONS)[number]["value"];
+
 export interface Due {
   id: string;
   residentId: string;
   amount: number;
   dueDate: string;
+  billingFeatures: DueBillingFeature[];
+  subdivisionRevenueShare: number;
   paidAt: string | null;
   createdAt: string;
 }

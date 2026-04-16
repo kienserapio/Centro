@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import type { Resident } from "./ResidentListing";
 
+type ResidentType = "owner" | "tenant";
+
 interface AddResidentModalProps {
   onClose: () => void;
   onAdd?: () => void;
@@ -36,7 +38,30 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
     useCustomBlock: false,
     useCustomLot: false,
     useCustomStreet: false,
+    residentType: ((editResident?.houseStatus === "tenant" ? "tenant" : "owner") as ResidentType),
   });
+
+  function cleanUnitValue(value: string, prefix: string) {
+    return value.replace(new RegExp(`^${prefix}\\s*`, "i"), "").trim();
+  }
+
+  function getResolvedAddress() {
+    const phase = form.useCustomPhase ? form.customPhase : form.phase;
+    const block = form.useCustomBlock ? form.customBlock : form.block;
+    const lot = form.useCustomLot ? form.customLot : form.lot;
+    const street = form.useCustomStreet ? form.customStreet : form.street;
+
+    const cleanPhase = cleanUnitValue(phase, "Phase");
+    const cleanBlock = cleanUnitValue(block, "Block");
+    const cleanLot = cleanUnitValue(lot, "Lot");
+
+    return {
+      phase: cleanPhase || null,
+      block_number: cleanBlock,
+      lot_number: cleanLot,
+      address_label: street.trim() || `${block}, ${lot}`,
+    };
+  }
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -55,6 +80,7 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
         ...editResident,
         name: form.name,
         phone: form.phone,
+        houseStatus: form.residentType === "owner" ? "owner" : "tenant",
       });
       onClose();
       return;
@@ -72,6 +98,8 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
         username: form.username,
         role: "resident",
         phone: form.phone,
+        resident_type: form.residentType,
+        unit: getResolvedAddress(),
       };
 
       console.log("[AddResidentModal] 📤 Sending to /api/admin/create-user:", {
@@ -248,6 +276,32 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
                   </span>
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Resident Type */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#6B7280] uppercase tracking-wide">
+              Resident Type
+            </label>
+            <div className="grid grid-cols-2 gap-2 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl p-1">
+              {(["owner", "tenant"] as const).map((type) => {
+                const selected = form.residentType === type;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setForm({ ...form, residentType: type })}
+                    className={`py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      selected
+                        ? "bg-white text-[#111827] shadow-sm"
+                        : "text-[#6B7280] hover:text-[#111827]"
+                    }`}
+                  >
+                    {type === "owner" ? "Owner Resident" : "Tenant Resident"}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

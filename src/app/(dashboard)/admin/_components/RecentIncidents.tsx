@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type IncidentType = "Security" | "Maintenance" | "Complaint";
 type IncidentStatus = "In Progress" | "Resolved" | "New";
 
@@ -30,10 +32,13 @@ export function RecentIncidents() {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] overflow-hidden">
       <div className="px-6 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
-        <h2 className="text-[18px] font-semibold text-[#111827]">Recent Incidents</h2>
-        <button className="text-secondary text-sm font-semibold hover:underline">
+        <div>
+          <h2 className="text-[18px] font-semibold text-[#111827]">Incident Reports</h2>
+          <p className="text-xs text-[#6B7280] mt-1">Latest logged incidents in the admin directory.</p>
+        </div>
+        <Link href="/security/incidents" className="text-secondary text-sm font-semibold hover:underline">
           View All
-        </button>
+        </Link>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left">

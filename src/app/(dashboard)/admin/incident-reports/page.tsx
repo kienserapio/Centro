@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { SecuritySidebar } from "../_components/SecuritySidebar";
-import { SecurityMobileNav } from "../_components/SecurityMobileNav";
-import { IncidentTable, type Incident } from "./_components/IncidentTable";
-import { ReportIncidentModal } from "./_components/ReportIncidentModal";
+import { AdminSidebar } from "../_components/AdminSidebar";
+import { AdminMobileNav } from "../_components/AdminMobileNav";
+import { IncidentTable, type Incident } from "../../security/incidents/_components/IncidentTable";
+import { ReportIncidentModal } from "../../security/incidents/_components/ReportIncidentModal";
 
-export default function IncidentReportsPage() {
+export default function AdminIncidentReportsPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [newIncident, setNewIncident] = useState<Incident | null>(null);
@@ -17,10 +17,9 @@ export default function IncidentReportsPage() {
 
   return (
     <div className="flex min-h-screen bg-[#F8F9FA]">
-      <SecuritySidebar />
+      <AdminSidebar />
 
       <div className="flex-1 flex flex-col lg:pl-64 min-h-screen">
-        {/* Header */}
         <header className="h-16 bg-white/90 backdrop-blur-md border-b border-[#E5E7EB] flex items-center justify-between px-6 sticky top-0 z-10">
           <h2 className="text-lg font-bold text-[#111827]">Digital Blotter</h2>
 
@@ -42,19 +41,17 @@ export default function IncidentReportsPage() {
             </button>
             <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-[#E5E7EB]">
               <div className="text-right">
-                <p className="text-xs font-bold text-[#111827] leading-none">Guard Ramos</p>
-                <p className="text-[10px] text-[#6B7280] uppercase mt-0.5">On Shift</p>
+                <p className="text-xs font-bold text-[#111827] leading-none">Admin</p>
+                <p className="text-[10px] text-[#6B7280] uppercase mt-0.5">On Duty</p>
               </div>
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                GR
+              <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center text-xs font-bold text-secondary">
+                AD
               </div>
             </div>
           </div>
         </header>
 
-        {/* Page body */}
         <main className="flex-1 p-6 pb-24 lg:pb-8 space-y-6">
-          {/* Top bar */}
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h3 className="text-2xl font-black text-[#111827] tracking-tight">
@@ -74,7 +71,7 @@ export default function IncidentReportsPage() {
               </button>
               <button
                 onClick={() => setModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-105 transition-all shadow-sm shadow-primary/20"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary text-white text-sm font-bold hover:brightness-105 transition-all shadow-sm shadow-secondary/20"
               >
                 <span className="material-icons-round text-[18px]">add_circle</span>
                 Report Incident
@@ -86,7 +83,7 @@ export default function IncidentReportsPage() {
         </main>
       </div>
 
-      <SecurityMobileNav />
+      <AdminMobileNav />
 
       {modalOpen && (
         <ReportIncidentModal

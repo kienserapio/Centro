@@ -18,6 +18,7 @@ interface ProfileData {
     lot_number: string | null;
     phase: string | null;
     address_label: string | null;
+    unit_type: "owned" | "rented" | "vacant" | null;
   } | null;
 }
 
@@ -25,6 +26,12 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
   guard: "Security",
   resident: "Resident",
+};
+
+const UNIT_TYPE_LABEL: Record<string, string> = {
+  owned: "Owner-Occupied",
+  rented: "Tenant-Occupied",
+  vacant: "Vacant",
 };
 
 export function SidebarUserProfile({ variant }: Props) {
@@ -46,7 +53,7 @@ export function SidebarUserProfile({ variant }: Props) {
       const { data } = await supabase
         .from("profiles")
         .select(
-          "full_name, role, avatar_url, units:unit_id(block_number, lot_number, phase, address_label)"
+          "full_name, role, avatar_url, units:unit_id(block_number, lot_number, phase, address_label, unit_type)"
         )
         .eq("id", user.id)
         .single();
@@ -86,12 +93,14 @@ export function SidebarUserProfile({ variant }: Props) {
   } else {
     // resident — prefer address_label, fallback to block/lot, fallback default
     const u = profile?.units;
+    const occupancy = u?.unit_type ? (UNIT_TYPE_LABEL[u.unit_type] ?? "Unassigned") : "Unassigned";
+
     if (u?.address_label) {
-      subtext = u.address_label;
+      subtext = `${u.address_label} • ${occupancy}`;
     } else if (u?.block_number && u?.lot_number) {
-      subtext = `Block ${u.block_number}, Lot ${u.lot_number}`;
+      subtext = `Block ${u.block_number}, Lot ${u.lot_number} • ${occupancy}`;
     } else {
-      subtext = "Address";
+      subtext = occupancy;
     }
   }
 

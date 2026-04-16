@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DUE_BILLING_FEATURE_OPTIONS } from "./types";
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -21,6 +22,10 @@ export const duesSchema = z.object({
   residentId: z.string().uuid(),
   amount: z.number().positive("Amount must be positive."),
   dueDate: z.string().datetime(),
+  billingFeatures: z
+    .array(z.enum(DUE_BILLING_FEATURE_OPTIONS.map((feature) => feature.value)))
+    .min(1, "Select at least one billing feature."),
+  subdivisionRevenueShare: z.number().nonnegative("Revenue share must be zero or positive."),
 });
 
 // ---------------------------------------------------------------------------

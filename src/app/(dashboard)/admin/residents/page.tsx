@@ -30,7 +30,17 @@ interface ProfileFromApi {
     lot_number: string;
     phase: string | null;
     address_label: string;
+    unit_type: "owned" | "rented" | "vacant";
   } | null;
+}
+
+function mapUnitTypeToHouseStatus(
+  unitType: "owned" | "rented" | "vacant" | null | undefined,
+): Resident["houseStatus"] {
+  if (unitType === "owned") return "owner";
+  if (unitType === "rented") return "tenant";
+  if (unitType === "vacant") return "vacant";
+  return "unassigned";
 }
 
 export default function ResidentsPage() {
@@ -60,6 +70,7 @@ export default function ResidentsPage() {
         duesStatus: "pending" as const,
         phone: p.phone ?? "",
         avatar: p.avatar_url ?? "",
+        houseStatus: mapUnitTypeToHouseStatus(p.units?.unit_type),
       }));
 
       setResidents(mapped);
@@ -88,6 +99,7 @@ export default function ResidentsPage() {
         body: JSON.stringify({
           full_name: updated.name,
           phone: updated.phone,
+          resident_type: updated.houseStatus === "tenant" ? "tenant" : "owner",
         }),
       });
 

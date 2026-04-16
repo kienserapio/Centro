@@ -8,6 +8,7 @@ const NAV_MAIN = [
   { label: "Dashboard", href: "/admin", icon: "dashboard" },
   { label: "Residents", href: "/admin/residents", icon: "people" },
   { label: "Dues & Billing", href: "/admin/dues", icon: "payments" },
+  { label: "Incident Reports", href: "/admin/incident-reports", icon: "report" },
   { label: "Roles & Permissions", href: "/admin/roles", icon: "admin_panel_settings" },
   { label: "Announcements", href: "/admin/posts", icon: "campaign" },
 ];

@@ -13,11 +13,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 const VALID_ROLES = ["resident", "admin", "guard"] as const;
+const VALID_RESIDENT_TYPES = ["owner", "tenant"] as const;
 
 /**
  * PATCH /api/admin/users/[id]
  * Updates a user's profile in the profiles table.
- * Body: { full_name?, role?, phone? }
+ * Body: { full_name?, role?, phone?, resident_type? }
  */
 export async function PATCH(
     request: NextRequest,
@@ -34,6 +35,7 @@ export async function PATCH(
         const updates: Record<string, unknown> = {};
         if (body.full_name !== undefined) updates.full_name = body.full_name;
         if (body.phone !== undefined) updates.phone = body.phone;
+        let normalizedResidentType: "owner" | "tenant" | null = null;
 
         if (body.role !== undefined) {
             const normalizedRole = String(body.role).toLowerCase();
@@ -46,30 +48,104 @@ export async function PATCH(
             updates.role = normalizedRole;
         }
 
-        if (Object.keys(updates).length === 0) {
+        if (body.resident_type !== undefined) {
+            const candidate = String(body.resident_type).toLowerCase();
+            if (!VALID_RESIDENT_TYPES.includes(candidate as typeof VALID_RESIDENT_TYPES[number])) {
+                return NextResponse.json(
+                    { error: `Invalid resident_type. Must be one of: ${VALID_RESIDENT_TYPES.join(", ")}` },
+                    { status: 400 }
+                );
+            }
+            normalizedResidentType = candidate as "owner" | "tenant";
+        }
+
+        if (Object.keys(updates).length === 0 && !normalizedResidentType) {
             return NextResponse.json(
                 { error: "No valid fields to update." },
                 { status: 400 }
             );
         }
 
-        const { data, error } = await supabase
-            .from("profiles")
-            .update(updates)
-            .eq("id", id)
-            .select()
-            .single();
+        let data: unknown = null;
+        if (Object.keys(updates).length > 0) {
+            const profileUpdateResult = await supabase
+                .from("profiles")
+                .update(updates)
+                .eq("id", id)
+                .select()
+                .single();
 
-        if (error) {
-            console.error(`[PATCH /api/admin/users/${id}] Error:`, error);
-            return NextResponse.json(
-                { error: error.message ?? "Failed to update user." },
-                { status: 500 }
-            );
+            data = profileUpdateResult.data;
+
+            if (profileUpdateResult.error) {
+                console.error(`[PATCH /api/admin/users/${id}] Error:`, profileUpdateResult.error);
+                return NextResponse.json(
+                    { error: profileUpdateResult.error.message ?? "Failed to update user." },
+                    { status: 500 }
+                );
+            }
+        }
+
+        if (normalizedResidentType) {
+            const { data: profileWithUnit, error: profileFetchError } = await supabase
+                .from("profiles")
+                .select("unit_id")
+                .eq("id", id)
+                .single();
+
+            if (profileFetchError) {
+                console.error(`[PATCH /api/admin/users/${id}] Unit lookup error:`, profileFetchError);
+                return NextResponse.json(
+                    { error: profileFetchError.message ?? "Failed to fetch resident unit." },
+                    { status: 500 }
+                );
+            }
+
+            if (profileWithUnit?.unit_id) {
+                const { data: unitRow, error: unitReadError } = await supabase
+                    .from("units")
+                    .select("owner_id")
+                    .eq("id", profileWithUnit.unit_id)
+                    .single();
+
+                if (unitReadError) {
+                    console.error(`[PATCH /api/admin/users/${id}] Unit read error:`, unitReadError);
+                    return NextResponse.json(
+                        { error: unitReadError.message ?? "Failed to read unit data." },
+                        { status: 500 }
+                    );
+                }
+
+                const unitUpdates: {
+                    unit_type: "owned" | "rented";
+                    owner_id?: string | null;
+                } = {
+                    unit_type: normalizedResidentType === "owner" ? "owned" : "rented",
+                };
+
+                if (normalizedResidentType === "owner") {
+                    unitUpdates.owner_id = id;
+                } else if (unitRow?.owner_id === id) {
+                    unitUpdates.owner_id = null;
+                }
+
+                const { error: unitUpdateError } = await supabase
+                    .from("units")
+                    .update(unitUpdates)
+                    .eq("id", profileWithUnit.unit_id);
+
+                if (unitUpdateError) {
+                    console.error(`[PATCH /api/admin/users/${id}] Unit update error:`, unitUpdateError);
+                    return NextResponse.json(
+                        { error: unitUpdateError.message ?? "Failed to update resident occupancy." },
+                        { status: 500 }
+                    );
+                }
+            }
         }
 
         console.log(`[PATCH /api/admin/users/${id}] Updated`);
-        return NextResponse.json(data);
+        return NextResponse.json(data ?? { id, updated: true });
     } catch (err) {
         console.error("[PATCH /api/admin/users] Internal error:", err);
         return NextResponse.json(

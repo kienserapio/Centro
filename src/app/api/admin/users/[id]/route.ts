@@ -35,7 +35,18 @@ export async function PATCH(
         const updates: Record<string, unknown> = {};
         if (body.full_name !== undefined) updates.full_name = body.full_name;
         if (body.phone !== undefined) updates.phone = body.phone;
+        if (body.email !== undefined) updates.email = body.email;
+        if (body.username !== undefined) updates.username = body.username;
         let normalizedResidentType: "owner" | "tenant" | null = null;
+
+        const parsedUnit = body.unit && typeof body.unit === "object"
+            ? (body.unit as {
+                phase?: string | null;
+                block_number?: string;
+                lot_number?: string;
+                address_label?: string;
+            })
+            : null;
 
         if (body.role !== undefined) {
             const normalizedRole = String(body.role).toLowerCase();
@@ -57,9 +68,16 @@ export async function PATCH(
                 );
             }
             normalizedResidentType = candidate as "owner" | "tenant";
+            updates.resident_type = normalizedResidentType;
         }
 
-        if (Object.keys(updates).length === 0 && !normalizedResidentType) {
+        const emailValue = typeof body.email === "string" ? body.email.trim() : "";
+        const passwordValue = typeof body.password === "string" ? body.password.trim() : "";
+        const hasAuthUpdate = !!emailValue || !!passwordValue;
+        const hasProfileUpdate = Object.keys(updates).length > 0;
+        const hasUnitUpdate = !!parsedUnit;
+
+        if (!hasProfileUpdate && !normalizedResidentType && !hasAuthUpdate && !hasUnitUpdate) {
             return NextResponse.json(
                 { error: "No valid fields to update." },
                 { status: 400 }
@@ -86,26 +104,68 @@ export async function PATCH(
             }
         }
 
-        if (normalizedResidentType) {
-            const { data: profileWithUnit, error: profileFetchError } = await supabase
-                .from("profiles")
-                .select("unit_id")
-                .eq("id", id)
-                .single();
+        if (hasAuthUpdate) {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-            if (profileFetchError) {
-                console.error(`[PATCH /api/admin/users/${id}] Unit lookup error:`, profileFetchError);
+            if (!supabaseUrl || !serviceRoleKey) {
                 return NextResponse.json(
-                    { error: profileFetchError.message ?? "Failed to fetch resident unit." },
+                    { error: "Server misconfiguration: missing env variables." },
                     { status: 500 }
                 );
             }
 
-            if (profileWithUnit?.unit_id) {
+            const admin = createServiceClient(supabaseUrl, serviceRoleKey);
+            const authUpdates: { email?: string; password?: string } = {};
+
+            if (emailValue) authUpdates.email = emailValue;
+            if (passwordValue) authUpdates.password = passwordValue;
+
+            const { error: authUpdateError } = await admin.auth.admin.updateUserById(id, authUpdates);
+
+            if (authUpdateError) {
+                console.error(`[PATCH /api/admin/users/${id}] Auth update error:`, authUpdateError);
+                return NextResponse.json(
+                    { error: authUpdateError.message ?? "Failed to update auth user." },
+                    { status: 500 }
+                );
+            }
+        }
+
+        if (normalizedResidentType) {
+            const { data: residentLinks, error: residentLinkError } = await supabase
+                .from("unit_residents")
+                .select("unit_id, is_primary")
+                .eq("profile_id", id);
+
+            if (residentLinkError) {
+                console.error(`[PATCH /api/admin/users/${id}] Unit lookup error:`, residentLinkError);
+                return NextResponse.json(
+                    { error: residentLinkError.message ?? "Failed to fetch resident unit." },
+                    { status: 500 }
+                );
+            }
+
+            if (residentLinks && residentLinks.length > 0) {
+                const primaryLink = residentLinks.find((link) => link.is_primary) ?? residentLinks[0];
+
+                const { error: linkUpdateError } = await supabase
+                    .from("unit_residents")
+                    .update({ resident_type: normalizedResidentType })
+                    .eq("profile_id", id);
+
+                if (linkUpdateError) {
+                    console.error(`[PATCH /api/admin/users/${id}] unit_residents update error:`, linkUpdateError);
+                    return NextResponse.json(
+                        { error: linkUpdateError.message ?? "Failed to update resident type." },
+                        { status: 500 }
+                    );
+                }
+
                 const { data: unitRow, error: unitReadError } = await supabase
                     .from("units")
                     .select("owner_id")
-                    .eq("id", profileWithUnit.unit_id)
+                    .eq("id", primaryLink.unit_id)
                     .single();
 
                 if (unitReadError) {
@@ -132,7 +192,7 @@ export async function PATCH(
                 const { error: unitUpdateError } = await supabase
                     .from("units")
                     .update(unitUpdates)
-                    .eq("id", profileWithUnit.unit_id);
+                    .eq("id", primaryLink.unit_id);
 
                 if (unitUpdateError) {
                     console.error(`[PATCH /api/admin/users/${id}] Unit update error:`, unitUpdateError);
@@ -140,6 +200,171 @@ export async function PATCH(
                         { error: unitUpdateError.message ?? "Failed to update resident occupancy." },
                         { status: 500 }
                     );
+                }
+            }
+        }
+
+        if (parsedUnit) {
+            if (!normalizedResidentType) {
+                return NextResponse.json(
+                    { error: "resident_type is required when updating unit details." },
+                    { status: 400 }
+                );
+            }
+
+            const cleanBlock = String(parsedUnit.block_number ?? "").replace(/^Block\s*/i, "").trim();
+            const cleanLot = String(parsedUnit.lot_number ?? "").replace(/^Lot\s*/i, "").trim();
+            const cleanPhase = parsedUnit.phase
+                ? String(parsedUnit.phase).replace(/^Phase\s*/i, "").trim()
+                : null;
+
+            if (!cleanBlock || !cleanLot) {
+                return NextResponse.json(
+                    { error: "Block and lot are required for unit updates." },
+                    { status: 400 }
+                );
+            }
+
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+            if (!supabaseUrl || !serviceRoleKey) {
+                return NextResponse.json(
+                    { error: "Server misconfiguration: missing env variables." },
+                    { status: 500 }
+                );
+            }
+
+            const admin = createServiceClient(supabaseUrl, serviceRoleKey);
+            const phaseLabel = cleanPhase ? `Phase ${cleanPhase}` : null;
+            const addressLabel = parsedUnit.address_label?.trim() || `Block ${cleanBlock}, Lot ${cleanLot}`;
+            const unitType = normalizedResidentType === "owner" ? "owned" : "rented";
+
+            let phaseId: string | null = null;
+            if (cleanPhase) {
+                const { data: foundPhase, error: phaseReadError } = await admin
+                    .from("phases")
+                    .select("id")
+                    .eq("name", phaseLabel)
+                    .single();
+
+                if (!phaseReadError && foundPhase) {
+                    phaseId = foundPhase.id;
+                } else {
+                    const { data: legacyPhase, error: legacyReadError } = await admin
+                        .from("phases")
+                        .select("id")
+                        .eq("name", cleanPhase)
+                        .single();
+
+                    if (!legacyReadError && legacyPhase) {
+                        phaseId = legacyPhase.id;
+                    } else {
+                        const { data: insertedPhase, error: phaseInsertError } = await admin
+                            .from("phases")
+                            .insert({ name: phaseLabel })
+                            .select("id")
+                            .single();
+
+                        if (phaseInsertError) {
+                            console.error(`[PATCH /api/admin/users/${id}] Phase create failed:`, phaseInsertError);
+                        } else {
+                            phaseId = insertedPhase.id;
+                        }
+                    }
+                }
+            }
+
+            let unitId: string | null = null;
+            const unitLookup = admin
+                .from("units")
+                .select("id, owner_id, phase_id")
+                .eq("block_number", cleanBlock)
+                .eq("lot_number", cleanLot)
+                .limit(1);
+
+            const { data: foundUnits, error: lookupError } = await unitLookup;
+
+            if (lookupError) {
+                console.error(`[PATCH /api/admin/users/${id}] Unit lookup failed:`, lookupError);
+            } else {
+                unitId = foundUnits?.[0]?.id ?? null;
+            }
+
+            if (!unitId) {
+                const { data: insertedUnit, error: insertUnitError } = await admin
+                    .from("units")
+                    .insert({
+                        block_number: cleanBlock,
+                        lot_number: cleanLot,
+                        phase_id: phaseId,
+                        address_label: addressLabel,
+                        unit_type: unitType,
+                        owner_id: normalizedResidentType === "owner" ? id : null,
+                    })
+                    .select("id")
+                    .single();
+
+                if (insertUnitError) {
+                    console.error(`[PATCH /api/admin/users/${id}] Unit create failed:`, insertUnitError);
+                } else {
+                    unitId = insertedUnit.id;
+                }
+            } else {
+                const unitRow = foundUnits?.[0] ?? null;
+
+                const unitUpdates: {
+                    unit_type: "owned" | "rented";
+                    owner_id?: string | null;
+                    phase_id?: string | null;
+                    address_label?: string;
+                } = {
+                    unit_type: unitType,
+                    address_label: addressLabel,
+                };
+
+                if (phaseId) {
+                    unitUpdates.phase_id = phaseId;
+                }
+
+                if (normalizedResidentType === "owner") {
+                    unitUpdates.owner_id = id;
+                } else if (unitRow?.owner_id === id) {
+                    unitUpdates.owner_id = null;
+                }
+
+                const { error: unitUpdateError } = await admin
+                    .from("units")
+                    .update(unitUpdates)
+                    .eq("id", unitId);
+
+                if (unitUpdateError) {
+                    console.error(`[PATCH /api/admin/users/${id}] Unit update failed:`, unitUpdateError);
+                }
+            }
+
+            if (unitId) {
+                const { error: clearPrimaryError } = await admin
+                    .from("unit_residents")
+                    .update({ is_primary: false })
+                    .eq("profile_id", id)
+                    .neq("unit_id", unitId);
+
+                if (clearPrimaryError) {
+                    console.error(`[PATCH /api/admin/users/${id}] Clear primary failed:`, clearPrimaryError);
+                }
+
+                const { error: linkError } = await admin
+                    .from("unit_residents")
+                    .upsert({
+                        unit_id: unitId,
+                        profile_id: id,
+                        resident_type: normalizedResidentType,
+                        is_primary: true,
+                    }, { onConflict: "unit_id,profile_id" });
+
+                if (linkError) {
+                    console.error(`[PATCH /api/admin/users/${id}] unit_residents upsert failed:`, linkError);
                 }
             }
         }

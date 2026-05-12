@@ -20,16 +20,26 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const editUnit = editResident?.unit ?? null;
+
+  const defaultPhase = editUnit?.phase ?? (isEditing ? "" : existingAddresses.phases[0] ?? "Phase 1");
+  const defaultBlock = editUnit?.block_number
+    ? `Block ${editUnit.block_number}`
+    : (isEditing ? "" : existingAddresses.blocks[0] ?? "Block 1");
+  const defaultLot = editUnit?.lot_number
+    ? `Lot ${editUnit.lot_number}`
+    : (isEditing ? "" : existingAddresses.lots[0] ?? "Lot 1");
+  const defaultStreet = editUnit?.address_label ?? (isEditing ? "" : existingAddresses.streets[0] ?? "Street 1");
   const [form, setForm] = useState({
     name: editResident?.name ?? "",
     email: editResident?.email ?? "",
     phone: editResident?.phone ?? "",
-    username: "",
+    username: editResident?.username ?? "",
     password: "",
-    street: existingAddresses.streets[0] ?? "Street 1",
-    phase: existingAddresses.phases[0] ?? "Phase 1",
-    block: existingAddresses.blocks[0] ?? "Block 1",
-    lot: existingAddresses.lots[0] ?? "Lot 1",
+    street: defaultStreet,
+    phase: defaultPhase,
+    block: defaultBlock,
+    lot: defaultLot,
     customPhase: "",
     customBlock: "",
     customLot: "",
@@ -54,12 +64,14 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
     const cleanPhase = cleanUnitValue(phase, "Phase");
     const cleanBlock = cleanUnitValue(block, "Block");
     const cleanLot = cleanUnitValue(lot, "Lot");
+    const trimmedStreet = street.trim();
+    const fallbackLabel = cleanBlock && cleanLot ? `Block ${cleanBlock}, Lot ${cleanLot}` : "";
 
     return {
       phase: cleanPhase || null,
       block_number: cleanBlock,
       lot_number: cleanLot,
-      address_label: street.trim() || `${block}, ${lot}`,
+      address_label: trimmedStreet || fallbackLabel,
     };
   }
 
@@ -74,13 +86,45 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
     e.preventDefault();
     setErrorMsg("");
 
-    // ── Editing an existing resident: call onSave (parent handles PATCH) ──
-    if (isEditing && editResident) {
+    const resolvedUnit = getResolvedAddress();
+    const hasUnitInput =
+      !!resolvedUnit.block_number ||
+      !!resolvedUnit.lot_number ||
+      !!resolvedUnit.address_label ||
+      !!resolvedUnit.phase;
+
+    if (!hasUnitInput && isEditing && !editUnit) {
       onSave?.({
-        ...editResident,
+        ...editResident!,
         name: form.name,
         phone: form.phone,
         houseStatus: form.residentType === "owner" ? "owner" : "tenant",
+        unit: null,
+      });
+      onClose();
+      return;
+    }
+
+    if (!resolvedUnit.block_number || !resolvedUnit.lot_number) {
+      setErrorMsg("Block and lot are required.");
+      return;
+    }
+
+    // ── Editing an existing resident: call onSave (parent handles PATCH) ──
+    if (isEditing && editResident) {
+      const emailValue = form.email.trim();
+      const usernameValue = form.username.trim();
+      const passwordValue = form.password.trim();
+
+      onSave?.({
+        ...editResident,
+        name: form.name,
+        email: emailValue || editResident.email,
+        username: usernameValue || editResident.username,
+        password: passwordValue || undefined,
+        phone: form.phone,
+        houseStatus: form.residentType === "owner" ? "owner" : "tenant",
+        unit: resolvedUnit,
       });
       onClose();
       return;
@@ -99,7 +143,7 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
         role: "resident",
         phone: form.phone,
         resident_type: form.residentType,
-        unit: getResolvedAddress(),
+        unit: resolvedUnit,
       };
 
       console.log("[AddResidentModal] 📤 Sending to /api/admin/create-user:", {
@@ -140,6 +184,19 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
     "w-full px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary transition";
   const selectClass =
     "flex-1 px-4 py-3 bg-[#F8F9FA] border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary transition";
+
+  const phaseOptions = form.phase && !existingAddresses.phases.includes(form.phase)
+    ? [form.phase, ...existingAddresses.phases]
+    : existingAddresses.phases;
+  const blockOptions = form.block && !existingAddresses.blocks.includes(form.block)
+    ? [form.block, ...existingAddresses.blocks]
+    : existingAddresses.blocks;
+  const lotOptions = form.lot && !existingAddresses.lots.includes(form.lot)
+    ? [form.lot, ...existingAddresses.lots]
+    : existingAddresses.lots;
+  const streetOptions = form.street && !existingAddresses.streets.includes(form.street)
+    ? [form.street, ...existingAddresses.streets]
+    : existingAddresses.streets;
 
   return (
     <div
@@ -231,7 +288,7 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
               </label>
               <input
                 type="email"
-                required
+                required={!isEditing}
                 placeholder="juan@email.com"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -251,6 +308,7 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
                 placeholder="j.delacruz24"
                 value={form.username}
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
+                required={!isEditing}
                 className={inputClass}
               />
             </div>
@@ -261,9 +319,10 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  placeholder={isEditing ? "Leave blank to keep" : "••••••••"}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  required={!isEditing}
                   className={`${inputClass} pr-10`}
                 />
                 <button
@@ -329,7 +388,7 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
                     onChange={(e) => setForm({ ...form, phase: e.target.value })}
                     className={selectClass}
                   >
-                    {existingAddresses.phases.map((p) => (
+                    {phaseOptions.map((p) => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
@@ -362,7 +421,7 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
                     onChange={(e) => setForm({ ...form, block: e.target.value })}
                     className={selectClass}
                   >
-                    {existingAddresses.blocks.map((b) => (
+                    {blockOptions.map((b) => (
                       <option key={b} value={b}>{b}</option>
                     ))}
                   </select>
@@ -395,7 +454,7 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
                     onChange={(e) => setForm({ ...form, lot: e.target.value })}
                     className={selectClass}
                   >
-                    {existingAddresses.lots.map((l) => (
+                    {lotOptions.map((l) => (
                       <option key={l} value={l}>{l}</option>
                     ))}
                   </select>
@@ -428,7 +487,7 @@ export function AddResidentModal({ onClose, onAdd, onSave, editResident, existin
                     onChange={(e) => setForm({ ...form, street: e.target.value })}
                     className={selectClass}
                   >
-                    {existingAddresses.streets.map((s) => (
+                    {streetOptions.map((s) => (
                       <option key={s} value={s}>{s}</option>
                     ))}
                   </select>

@@ -3,6 +3,13 @@ import { DuesStatusBadge } from "./DuesStatusBadge";
 type DuesStatus = "paid" | "unpaid" | "pending";
 type HouseStatus = "owner" | "tenant" | "vacant" | "unassigned";
 
+export type ResidentUnit = {
+  phase: string | null;
+  block_number: string;
+  lot_number: string;
+  address_label: string;
+};
+
 const HOUSE_STATUS_LABELS: Record<HouseStatus, string> = {
   owner: "Owner-Occupied",
   tenant: "Tenant-Occupied",
@@ -21,8 +28,11 @@ export interface Resident {
   id: string;
   name: string;
   email: string;
+  username?: string;
+  password?: string;
   role: string;
   address: string;
+  unit?: ResidentUnit | null;
   duesStatus: DuesStatus;
   phone: string;
   avatar: string;

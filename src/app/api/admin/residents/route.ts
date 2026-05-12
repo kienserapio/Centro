@@ -108,35 +108,77 @@ export async function GET() {
 
         const supabase = createServiceClient(supabaseUrl, serviceRoleKey);
 
-        // Fetch resident profiles — join units table for address
-        const { data: residents, error } = await supabase
-            .from("profiles")
-            .select(`
-        id,
-        full_name,
-        role,
-        phone,
-        avatar_url,
-        is_active,
-        created_at,
-        units:unit_id (
-          id,
-          block_number,
-          lot_number,
-          phase,
-                    address_label,
-                    unit_type
-        )
-      `)
-            .eq("role", "resident")
-            .order("created_at", { ascending: false });
+                // Fetch resident profiles — join unit_residents + units + phases
+                const { data: residents, error } = await supabase
+                        .from("profiles")
+                        .select(`
+                id,
+                full_name,
+                username,
+                email,
+                role,
+                phone,
+                avatar_url,
+                is_active,
+                created_at,
+                unit_residents:unit_residents (
+                    resident_type,
+                    is_primary,
+                    unit:units (
+                        id,
+                        block_number,
+                        lot_number,
+                        address_label,
+                        unit_type,
+                        phase:phases (name)
+                    )
+                )
+            `)
+                        .eq("role", "resident")
+                        .order("created_at", { ascending: false });
 
         if (error) {
             console.error("[GET /api/admin/residents] Error:", error);
             return NextResponse.json(getDemoResidents());
         }
 
-        return NextResponse.json((residents ?? []).length > 0 ? residents : getDemoResidents());
+        const normalized = (residents ?? []).map((row) => {
+            const links = Array.isArray(row.unit_residents) ? row.unit_residents : [];
+            const primary = links.find((link) => link.is_primary) ?? links[0];
+            const unit = primary?.unit ?? null;
+            const rawPhaseName = unit?.phase?.name ?? null;
+            const phaseName = rawPhaseName
+                ? (rawPhaseName.toLowerCase().startsWith("phase")
+                    ? rawPhaseName
+                    : `Phase ${rawPhaseName}`)
+                : null;
+
+            const fallbackName = row.full_name || row.username || row.email || "—";
+
+            return {
+                id: row.id,
+                full_name: fallbackName,
+                email: row.email ?? null,
+                username: row.username ?? null,
+                role: row.role,
+                phone: row.phone,
+                avatar_url: row.avatar_url,
+                is_active: row.is_active,
+                created_at: row.created_at,
+                units: unit
+                    ? {
+                        id: unit.id,
+                        block_number: unit.block_number,
+                        lot_number: unit.lot_number,
+                        phase: phaseName,
+                        address_label: unit.address_label,
+                        unit_type: unit.unit_type,
+                    }
+                    : null,
+            };
+        });
+
+        return NextResponse.json(normalized);
     } catch (err) {
         console.error("[GET /api/admin/residents] Internal error:", err);
         return NextResponse.json(getDemoResidents());

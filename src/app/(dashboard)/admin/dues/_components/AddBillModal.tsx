@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DUE_BILLING_FEATURE_OPTIONS, DueBillingFeature } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
 
 interface AddBillModalProps {
   onClose: () => void;
@@ -23,6 +24,7 @@ interface ResidentApiItem {
   id: string;
   full_name: string;
   units: {
+    id: string;
     block_number: string | null;
     lot_number: string | null;
     unit_type: "owned" | "rented" | "vacant" | null;
@@ -31,6 +33,7 @@ interface ResidentApiItem {
 
 interface ResidentOption {
   id: string;
+  unitId: string | null;
   label: string;
   houseStatus: HouseStatus;
 }
@@ -60,6 +63,8 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
   const [residents, setResidents] = useState<ResidentOption[]>([]);
   const [selectedResidents, setSelectedResidents] = useState<string[]>([]);
   const [isLoadingResidents, setIsLoadingResidents] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [amount, setAmount] = useState(0);
   const [description, setDescription] = useState("");
   const [billingPeriod, setBillingPeriod] = useState("");
@@ -89,6 +94,7 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
 
           return {
             id: resident.id,
+            unitId: resident.units?.id ?? null,
             label: `${resident.full_name}${unitLabel}`,
             houseStatus: mapUnitTypeToHouseStatus(resident.units?.unit_type),
           };
@@ -121,8 +127,16 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
     setSelectedResidents(next);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function toDateOnly(value: string): string | null {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setErrorMsg("");
 
     if (
       selectedResidents.length === 0 ||
@@ -135,6 +149,16 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
       return;
     }
 
+    const chosen = residents.filter((resident) => selectedResidents.includes(resident.id));
+    const missingUnit = chosen.filter((resident) => !resident.unitId);
+
+    if (missingUnit.length > 0) {
+      setErrorMsg("Some selected residents have no assigned unit. Assign a unit before billing.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
     onCreateBill({
       residentCount: selectedResidents.length,
       amount,
@@ -144,6 +168,36 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
       billingFeatures: selectedFeatures,
     });
 
+    try {
+      const supabase = createClient();
+      const dueDateValue = toDateOnly(dueDate);
+      const billingPeriodValue = toDateOnly(billingPeriod);
+
+      const inserts = chosen.map((resident) => ({
+        unit_id: resident.unitId,
+        description: description.trim(),
+        amount,
+        amount_paid: 0,
+        status: "pending",
+        due_date: dueDateValue,
+        billing_period: billingPeriodValue,
+      }));
+
+      const { error } = await supabase.from("dues").insert(inserts);
+
+      if (error) {
+        setErrorMsg(error.message ?? "Failed to create dues.");
+        setIsSubmitting(false);
+        return;
+      }
+    } catch (err) {
+      console.error("[AddBillModal] Dues insert error:", err);
+      setErrorMsg("Network error while creating dues.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    setIsSubmitting(false);
     onClose();
   }
 
@@ -187,6 +241,11 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
 
         {/* Scrollable Form */}
         <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5 overflow-y-auto">
+          {errorMsg && (
+            <p className="text-sm text-rose-600 bg-rose-50 border border-rose-100 px-4 py-3 rounded-xl">
+              {errorMsg}
+            </p>
+          )}
           {/* Select Residents */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -359,10 +418,11 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
           <div className="pt-2 space-y-2">
             <button
               type="submit"
+              disabled={isSubmitting}
               className="w-full py-3.5 bg-secondary hover:bg-secondary/90 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <span className="material-icons-round text-[18px]">send</span>
-              Generate &amp; Send Bill
+              {isSubmitting ? "Creating…" : "Generate & Send Bill"}
             </button>
             <button
               type="button"

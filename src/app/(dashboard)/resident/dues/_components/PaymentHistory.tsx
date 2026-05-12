@@ -1,32 +1,70 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
 type HistoryItem = {
+  id: string;
   label: string;
   subtext: string;
   amount: string;
   date: string;
 };
 
-const HISTORY: HistoryItem[] = [
-  {
-    label: "September Combined Dues",
-    subtext: "Paid via Credit Card • Ref: #78219",
-    amount: "₱450.00",
-    date: "Sep 02, 2024",
-  },
-  {
-    label: "August Combined Dues",
-    subtext: "Paid via Bank Transfer • Ref: #66102",
-    amount: "₱450.00",
-    date: "Aug 05, 2024",
-  },
-  {
-    label: "July Combined Dues",
-    subtext: "Paid via Credit Card • Ref: #55198",
-    amount: "₱450.00",
-    date: "Jul 01, 2024",
-  },
-];
-
 export function PaymentHistory() {
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) return;
+
+        const { data: links } = await supabase
+          .from("unit_residents")
+          .select("unit_id, is_primary")
+          .eq("profile_id", user.id)
+          .order("is_primary", { ascending: false });
+
+        const unitId = links?.[0]?.unit_id;
+        if (!unitId) return;
+
+        const { data: payments } = await supabase
+          .from("payments")
+          .select("id, amount, status, description, reference_no, created_at")
+          .eq("unit_id", unitId)
+          .order("created_at", { ascending: false })
+          .range(0, 9);
+
+        const rows = (payments ?? []).map((payment) => {
+          const amount = Number(payment.amount ?? 0);
+          return {
+            id: payment.id,
+            label: payment.description ?? "Payment",
+            subtext: payment.reference_no
+              ? `Ref: ${payment.reference_no}`
+              : (payment.status ? payment.status.toUpperCase() : "Payment"),
+            amount: `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            date: payment.created_at
+              ? new Date(payment.created_at).toLocaleDateString("en-PH", { month: "short", day: "2-digit", year: "numeric" })
+              : "—",
+          };
+        });
+
+        setHistory(rows);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    load();
+  }, []);
+
   return (
     <section className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] overflow-hidden">
       {/* Header */}
@@ -39,9 +77,15 @@ export function PaymentHistory() {
 
       {/* Items */}
       <div className="p-6 space-y-3">
-        {HISTORY.map((item) => (
+        {isLoading && (
+          <div className="text-sm text-[#6B7280] text-center py-6">Loading payments...</div>
+        )}
+        {!isLoading && history.length === 0 && (
+          <div className="text-sm text-[#6B7280] text-center py-6">No payments yet.</div>
+        )}
+        {!isLoading && history.map((item) => (
           <div
-            key={item.label}
+            key={item.id}
             className="flex items-center justify-between p-4 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] hover:border-secondary/30 transition-all"
           >
             <div className="flex items-center gap-4">
@@ -64,7 +108,10 @@ export function PaymentHistory() {
           </div>
         ))}
 
-        <button className="w-full mt-3 py-3 text-sm font-semibold text-secondary border-2 border-secondary/20 rounded-xl hover:bg-secondary/5 transition-colors">
+        <button
+          className="w-full mt-3 py-3 text-sm font-semibold text-secondary border-2 border-secondary/20 rounded-xl hover:bg-secondary/5 transition-colors"
+          disabled={history.length === 0}
+        >
           View Full Statement History
         </button>
       </div>

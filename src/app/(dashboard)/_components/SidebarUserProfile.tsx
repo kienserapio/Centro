@@ -53,7 +53,7 @@ export function SidebarUserProfile({ variant }: Props) {
       const { data } = await supabase
         .from("profiles")
         .select(
-          "full_name, role, avatar_url, units:unit_id(block_number, lot_number, phase, address_label, unit_type)"
+          "full_name, role, avatar_url, unit_residents(units(block_number, lot_number, phase, address_label, unit_type))"
         )
         .eq("id", user.id)
         .single();

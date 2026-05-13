@@ -40,8 +40,7 @@ export async function GET() {
         resident_type,
         is_primary,
         profiles(id, full_name, username, phone)
-      `)
-      .is("deleted_at", null);
+      `);
 
     if (residentsError) {
       console.error("Error fetching residents:", residentsError);
@@ -65,8 +64,8 @@ export async function GET() {
     // Transform units to match frontend format
     const transformedUnits = (Array.isArray(units) ? units : []).map((unit: any) => {
       const unitResidents = residentsByUnit[unit.id] || [];
-      const primaryResident = unitResidents.find((r: any) => r.is_primary);
-      const residentName = primaryResident?.profiles?.full_name;
+      const primaryResident = unitResidents.find((r: any) => r.is_primary) || unitResidents[0];
+      const residentName = primaryResident?.profiles?.full_name || primaryResident?.profiles?.username;
       const contact = primaryResident?.profiles?.phone;
 
       return {

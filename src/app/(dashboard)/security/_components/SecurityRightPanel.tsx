@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 const QUICK_CONTACTS = [
   {
     label: "Police Emergency",
@@ -47,27 +49,32 @@ export function SecurityRightPanel() {
         <p className="text-xs font-bold text-[#6B7280] uppercase tracking-widest mb-3">
           Guard on Duty
         </p>
-        <div className="bg-[#F8F9FA] rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-[#E5E7EB] flex items-center justify-center shrink-0">
-              <span className="material-icons-round text-[#6B7280] text-2xl">
-                account_circle
-              </span>
+        <Link href="/security/guard-schedule" className="block hover:opacity-80 transition-opacity">
+          <div className="bg-[#F8F9FA] rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-[#E5E7EB] flex items-center justify-center shrink-0">
+                <span className="material-icons-round text-[#6B7280] text-2xl">
+                  account_circle
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[#111827]">Sgt. David Miller</p>
+                <p className="text-[10px] text-[#6B7280] uppercase tracking-wide">
+                  Post: Main Gate A
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold text-[#111827]">Sgt. David Miller</p>
-              <p className="text-[10px] text-[#6B7280] uppercase tracking-wide">
-                Post: Main Gate A
+            <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
+              <p className="text-xs text-[#6B7280]">
+                Shift ends in:{" "}
+                <span className="font-bold text-[#111827]">03h 12m</span>
               </p>
             </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
-            <p className="text-xs text-[#6B7280]">
-              Shift ends in:{" "}
-              <span className="font-bold text-[#111827]">03h 12m</span>
+            <p className="text-[10px] text-secondary font-semibold mt-3">
+              Click to manage schedules →
             </p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* System Status */}

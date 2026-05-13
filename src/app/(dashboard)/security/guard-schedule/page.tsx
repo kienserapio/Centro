@@ -142,6 +142,10 @@ export default function GuardSchedulePage() {
     }
   };
 
+  const handleUpdate = async (updatedSchedule: any) => {
+    setSchedules((prev) => prev.map((s) => (s.id === updatedSchedule.id ? { ...s, ...updatedSchedule } : s)));
+  };
+
   return (
     <div className="flex min-h-screen bg-[#F8F9FA]">
       <SecuritySidebar />
@@ -296,7 +300,7 @@ export default function GuardSchedulePage() {
                 <p className="text-sm text-[#6B7280] mt-3">Loading schedules...</p>
               </div>
             ) : schedules.length > 0 ? (
-              <GuardScheduleTable schedules={schedules} onDelete={handleDelete} />
+              <GuardScheduleTable schedules={schedules} onDelete={handleDelete} onUpdate={handleUpdate} />
             ) : (
               <div className="bg-white border border-[#E5E7EB] rounded-2xl p-12 text-center">
                 <span className="material-icons-round text-[#9CA3AF] text-4xl">

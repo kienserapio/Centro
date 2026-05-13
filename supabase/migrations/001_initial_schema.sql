@@ -336,7 +336,6 @@ CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at);
 CREATE INDEX IF NOT EXISTS idx_payments_billing_period ON payments(billing_period);
 CREATE INDEX IF NOT EXISTS idx_payments_due_date ON payments(due_date);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
-CREATE INDEX IF NOT EXISTS idx_payments_transaction_type ON payments(transaction_type);
 CREATE INDEX IF NOT EXISTS idx_payments_unit_created ON payments(unit_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_payment_allocations_payment_id ON payment_allocations(payment_id);

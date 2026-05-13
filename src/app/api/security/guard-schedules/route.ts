@@ -8,7 +8,7 @@ export async function GET() {
     );
 
     // Fetch all active guard schedules with guard info
-    const { data: schedules, error } = await supabase
+    const { data: schedules = [], error } = await supabase
       .from("guard_schedules")
       .select(`
         id,
@@ -23,7 +23,7 @@ export async function GET() {
         profiles(id, full_name, username, phone)
       `)
       .eq("is_active", true)
-      .is("deleted_at", true)
+      .is("deleted_at", null)
       .order("shift_date", { ascending: false });
 
     if (error) {

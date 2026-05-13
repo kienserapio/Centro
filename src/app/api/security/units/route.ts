@@ -7,8 +7,8 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Fetch units with phases and owner info
-    const { data: units, error } = await supabase
+    // Fetch units with phases and owner info (exclude soft-deleted rows)
+    const { data: units = [], error } = await supabase
       .from("units")
       .select(
         `
@@ -24,7 +24,7 @@ export async function GET() {
         updated_at
       `
       )
-      .is("deleted_at", true);
+      .is("deleted_at", null);
 
     if (error) {
       console.error("Error fetching units:", error);
@@ -32,7 +32,7 @@ export async function GET() {
     }
 
     // Fetch unit residents with profile info
-    const { data: residents, error: residentsError } = await supabase
+    const { data: residents = [], error: residentsError } = await supabase
       .from("unit_residents")
       .select(`
         unit_id,
@@ -40,7 +40,8 @@ export async function GET() {
         resident_type,
         is_primary,
         profiles(id, full_name, username, phone)
-      `);
+      `)
+      .is("deleted_at", null);
 
     if (residentsError) {
       console.error("Error fetching residents:", residentsError);
@@ -51,19 +52,18 @@ export async function GET() {
     }
 
     // Map residents by unit_id for easier lookup
-    const residentsByUnit = residents.reduce(
-      (acc, resident) => {
-        if (!acc[resident.unit_id]) {
-          acc[resident.unit_id] = [];
-        }
-        acc[resident.unit_id].push(resident);
-        return acc;
-      },
-      {} as Record<string, typeof residents>
-    );
+    const residentsByUnit = Array.isArray(residents)
+      ? residents.reduce((acc, resident) => {
+          const unitId = resident?.unit_id;
+          if (!unitId) return acc;
+          if (!acc[unitId]) acc[unitId] = [];
+          acc[unitId].push(resident);
+          return acc;
+        }, {} as Record<string, any[]>)
+      : {};
 
     // Transform units to match frontend format
-    const transformedUnits = units.map((unit: any) => {
+    const transformedUnits = (Array.isArray(units) ? units : []).map((unit: any) => {
       const unitResidents = residentsByUnit[unit.id] || [];
       const primaryResident = unitResidents.find((r: any) => r.is_primary);
       const residentName = primaryResident?.profiles?.full_name;

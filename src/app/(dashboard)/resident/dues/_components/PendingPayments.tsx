@@ -1,48 +1,26 @@
 type PendingItem = {
+  id: string;
   description: string;
   subtext: string;
   amount: string;
   dueDate: string;
 };
 
-const PENDING: PendingItem[] = [
-  {
-    description: "Association Fees",
-    subtext: "Quarterly neighborhood maintenance",
-    amount: "₱200.00",
-    dueDate: "Oct 01, 2025",
-  },
-  {
-    description: "Monthly Maintenance",
-    subtext: "Shared facilities and parks",
-    amount: "₱150.00",
-    dueDate: "Oct 01, 2025",
-  },
-  {
-    description: "Security Dues",
-    subtext: "24/7 Gated security services",
-    amount: "₱50.00",
-    dueDate: "Oct 01, 2025",
-  },
-  {
-    description: "Garbage Collection",
-    subtext: "Weekly waste management",
-    amount: "₱50.00",
-    dueDate: "Oct 01, 2025",
-  },
-];
+interface Props {
+  items: PendingItem[];
+}
 
-export function PendingPayments() {
+export function PendingPayments({ items }: Props) {
   return (
     <section className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] overflow-hidden mb-8">
       {/* Header */}
       <div className="px-6 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
         <h4 className="text-[18px] font-semibold text-[#111827] flex items-center gap-2">
           <span className="material-icons-round text-primary">pending_actions</span>
-          Pending Payments
+          Pending Dues
         </h4>
         <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">
-          {PENDING.length} Items Outstanding
+          {items.length} Items Outstanding
         </span>
       </div>
 
@@ -66,9 +44,9 @@ export function PendingPayments() {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E5E7EB]">
-            {PENDING.map((item) => (
+            {items.map((item) => (
               <tr
-                key={item.description}
+                key={item.id}
                 className="hover:bg-[#F8F9FA] transition-colors"
               >
                 <td className="px-6 py-5">
@@ -90,6 +68,16 @@ export function PendingPayments() {
                 </td>
               </tr>
             ))}
+            {items.length === 0 && (
+              <tr>
+                <td
+                  colSpan={4}
+                  className="px-6 py-8 text-center text-sm text-[#6B7280]"
+                >
+                  No pending dues found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

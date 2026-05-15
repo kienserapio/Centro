@@ -1,32 +1,16 @@
 type HistoryItem = {
+  id: string;
   label: string;
   subtext: string;
   amount: string;
   date: string;
 };
 
-const HISTORY: HistoryItem[] = [
-  {
-    label: "September Combined Dues",
-    subtext: "Paid via Credit Card • Ref: #78219",
-    amount: "₱450.00",
-    date: "Sep 02, 2024",
-  },
-  {
-    label: "August Combined Dues",
-    subtext: "Paid via Bank Transfer • Ref: #66102",
-    amount: "₱450.00",
-    date: "Aug 05, 2024",
-  },
-  {
-    label: "July Combined Dues",
-    subtext: "Paid via Credit Card • Ref: #55198",
-    amount: "₱450.00",
-    date: "Jul 01, 2024",
-  },
-];
+interface Props {
+  items: HistoryItem[];
+}
 
-export function PaymentHistory() {
+export function PaymentHistory({ items }: Props) {
   return (
     <section className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] overflow-hidden">
       {/* Header */}
@@ -39,9 +23,9 @@ export function PaymentHistory() {
 
       {/* Items */}
       <div className="p-6 space-y-3">
-        {HISTORY.map((item) => (
+        {items.map((item) => (
           <div
-            key={item.label}
+            key={item.id}
             className="flex items-center justify-between p-4 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] hover:border-secondary/30 transition-all"
           >
             <div className="flex items-center gap-4">
@@ -63,6 +47,12 @@ export function PaymentHistory() {
             </div>
           </div>
         ))}
+
+        {items.length === 0 && (
+          <div className="p-4 rounded-xl bg-[#F8F9FA] border border-[#E5E7EB] text-sm text-[#6B7280] text-center">
+            No payments recorded yet.
+          </div>
+        )}
 
         <button className="w-full mt-3 py-3 text-sm font-semibold text-secondary border-2 border-secondary/20 rounded-xl hover:bg-secondary/5 transition-colors">
           View Full Statement History

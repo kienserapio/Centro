@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminSidebar } from "../_components/AdminSidebar";
 import { AdminMobileNav } from "../_components/AdminMobileNav";
 import { TransactionsListing, Transaction } from "./_components/TransactionsListing";
 import { AddBillModal, NewBillPayload } from "./_components/AddBillModal";
 import { DUE_BILLING_FEATURE_OPTIONS, DueBillingFeature } from "@/lib/types";
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 const SEED_TRANSACTIONS: Transaction[] = [
   {
@@ -54,6 +55,18 @@ const FEATURE_NAMES = Object.fromEntries(
   DUE_BILLING_FEATURE_OPTIONS.map((feature) => [feature.value, feature.label]),
 ) as Record<DueBillingFeature, string>;
 
+type PaymentRow = {
+  id: string;
+  unit_id: string;
+  transaction_type?: string | null;
+  status?: string | null;
+  amount: number;
+  description: string;
+  billing_period: string | null;
+  due_date: string | null;
+  created_at: string;
+};
+
 function toPhp(amount: number) {
   return `₱${amount.toLocaleString("en-PH", {
     minimumFractionDigits: 2,
@@ -65,9 +78,67 @@ function parsePhp(value: string) {
   return Number(value.replace(/[^\d.]/g, "")) || 0;
 }
 
+function formatDate(value: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function shortUnitLabel(unitId: string) {
+  return unitId.slice(0, 8).toUpperCase();
+}
+
+function groupPaymentsIntoTransactions(rows: PaymentRow[]): Transaction[] {
+  const groups = new Map<string, PaymentRow[]>();
+
+  rows.forEach((row) => {
+    const groupKey = [
+      row.description,
+      row.billing_period ?? "",
+      row.due_date ?? "",
+      row.amount,
+      row.created_at,
+    ].join("|");
+    const existing = groups.get(groupKey) ?? [];
+    existing.push(row);
+    groups.set(groupKey, existing);
+  });
+
+  return Array.from(groups.entries())
+    .map(([groupKey, groupRows]) => {
+      const [description, billingPeriodRaw, dueDateRaw] = groupKey.split("|");
+      const representative = groupRows[0];
+      const billingPeriod = billingPeriodRaw ? formatDate(billingPeriodRaw) : "One-time";
+      const date = formatDate(dueDateRaw || representative.created_at);
+      const totalAmount = groupRows.reduce((sum, row) => sum + row.amount, 0);
+      const residentCount = groupRows.length;
+
+      return {
+        id: representative.id,
+        initials: residentCount > 1 ? "SB" : shortUnitLabel(representative.unit_id).slice(0, 2),
+        resident: residentCount > 1 ? `${residentCount} Residents` : `Unit ${shortUnitLabel(representative.unit_id)}`,
+        description,
+        billingPeriod,
+        amount: toPhp(totalAmount / 100),
+        status: (representative.transaction_type === "payment" || representative.status === "paid"
+          ? "paid"
+          : representative.transaction_type === "charge" || representative.status === "pending"
+            ? "pending"
+            : "overdue") as Transaction["status"],
+        date,
+      };
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
 export default function DuesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>(SEED_TRANSACTIONS);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isRevenueFilterOpen, setIsRevenueFilterOpen] = useState(false);
   const [selectedRevenueFeatures, setSelectedRevenueFeatures] = useState<DueBillingFeature[]>(
     DUE_BILLING_FEATURE_OPTIONS.map((feature) => feature.value),
@@ -98,6 +169,32 @@ export default function DuesPage() {
 
   const subdivisionRevenueTotal = baseCollection + filteredFeatureRevenue;
 
+  useEffect(() => {
+    async function loadTransactions() {
+      const supabase = createSupabaseClient();
+      const { data: rows, error } = await supabase
+        .from("payments")
+        .select("id, unit_id, transaction_type, status, amount, description, billing_period, due_date, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.warn("[Admin Dues] Failed to load recent transactions.", error.message);
+        setTransactions(SEED_TRANSACTIONS);
+        return;
+      }
+
+      if (rows.length === 0) {
+        setTransactions([]);
+        return;
+      }
+
+      setTransactions(groupPaymentsIntoTransactions(rows));
+    }
+
+    loadTransactions();
+  }, []);
+
   function toggleRevenueFeature(feature: DueBillingFeature) {
     setSelectedRevenueFeatures((current) =>
       current.includes(feature)
@@ -106,9 +203,41 @@ export default function DuesPage() {
     );
   }
 
-  function handleCreateBill(newBill: NewBillPayload) {
-    const billTotal = newBill.amount * newBill.residentCount;
+  async function handleCreateBill(newBill: NewBillPayload) {
+    const billTotal = newBill.amount * newBill.residents.length;
     const perFeatureShare = billTotal / newBill.billingFeatures.length;
+
+    const billingPeriod = newBill.billingPeriod
+      ? `${newBill.billingPeriod}-01`
+      : null;
+
+    const supabase = createSupabaseClient();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const response = await fetch("/api/admin/payments", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        residents: newBill.residents,
+        amount: newBill.amount,
+        description: newBill.description,
+        billingPeriod,
+        dueDate: newBill.dueDate || null,
+      }),
+    });
+
+    const respData = await response.json();
+
+    if (!response.ok) {
+      console.error("[Admin Dues] Failed to insert payments:", respData?.error);
+      return;
+    }
+
+    console.debug("[Admin Dues] Inserted payments:", respData);
 
     setSubdivisionRevenueByFeature((current) => {
       const next = { ...current };
@@ -120,26 +249,19 @@ export default function DuesPage() {
       return next;
     });
 
-    const featureLabel = newBill.billingFeatures
-      .map((feature) => FEATURE_NAMES[feature])
-      .join(", ");
+    // Refresh from the database so the recent list stays in sync with saved bills.
+    const { data: refreshedRows, error: refreshError } = await supabase
+      .from("payments")
+      .select("id, unit_id, transaction_type, status, amount, description, billing_period, due_date, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
 
-    const nextTransaction: Transaction = {
-      id: transactions.length + 1,
-      initials: "SB",
-      resident: `${newBill.residentCount} Residents`,
-      description: `${newBill.description} • ${featureLabel}`,
-      billingPeriod: newBill.billingPeriod,
-      amount: toPhp(billTotal),
-      status: "pending",
-      date: new Date(newBill.dueDate).toLocaleDateString("en-US", {
-        month: "short",
-        day: "2-digit",
-        year: "numeric",
-      }),
-    };
+    if (refreshError) {
+      console.warn("[Admin Dues] Failed to refresh recent transactions.", refreshError.message);
+      return;
+    }
 
-    setTransactions((current) => [nextTransaction, ...current]);
+    setTransactions(groupPaymentsIntoTransactions(refreshedRows ?? []).slice(0, 10));
   }
 
   return (

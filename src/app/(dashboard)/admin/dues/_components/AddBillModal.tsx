@@ -5,11 +5,17 @@ import { DUE_BILLING_FEATURE_OPTIONS, DueBillingFeature } from "@/lib/types";
 
 interface AddBillModalProps {
   onClose: () => void;
-  onCreateBill: (bill: NewBillPayload) => void;
+  onCreateBill: (bill: NewBillPayload) => Promise<void> | void;
+}
+
+export interface SelectedResident {
+  id: string;
+  unitId: string;
+  label: string;
 }
 
 export interface NewBillPayload {
-  residentCount: number;
+  residents: SelectedResident[];
   amount: number;
   description: string;
   billingPeriod: string;
@@ -22,7 +28,10 @@ type HouseStatus = "owner" | "tenant" | "vacant" | "unassigned";
 interface ResidentApiItem {
   id: string;
   full_name: string;
+  resident_type?: "owner" | "tenant" | null;
+  unit_id?: string | null;
   units: {
+    id: string | null;
     block_number: string | null;
     lot_number: string | null;
     unit_type: "owned" | "rented" | "vacant" | null;
@@ -31,12 +40,13 @@ interface ResidentApiItem {
 
 interface ResidentOption {
   id: string;
+  unitId: string | null;
   label: string;
   houseStatus: HouseStatus;
 }
 
 const HOUSE_STATUS_LABELS: Record<HouseStatus, string> = {
-  owner: "Owner",
+  owner: "Resident",
   tenant: "Tenant",
   vacant: "Vacant",
   unassigned: "Unassigned",
@@ -49,10 +59,15 @@ const HOUSE_STATUS_STYLES: Record<HouseStatus, string> = {
   unassigned: "bg-[#F3F4F6] text-[#6B7280] border-[#E5E7EB]",
 };
 
-function mapUnitTypeToHouseStatus(unitType: "owned" | "rented" | "vacant" | null | undefined): HouseStatus {
+function mapUnitTypeToHouseStatus(
+  unitType: "owned" | "rented" | "vacant" | null | undefined,
+  residentType?: "owner" | "tenant" | null,
+): HouseStatus {
   if (unitType === "owned") return "owner";
   if (unitType === "rented") return "tenant";
   if (unitType === "vacant") return "vacant";
+  if (residentType === "owner") return "owner";
+  if (residentType === "tenant") return "tenant";
   return "unassigned";
 }
 
@@ -66,6 +81,8 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
   const [dueDate, setDueDate] = useState("");
   const [selectedFeatures, setSelectedFeatures] = useState<DueBillingFeature[]>([]);
   const [isFeatureMenuOpen, setIsFeatureMenuOpen] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const allSelected = residents.length > 0 && selectedResidents.length === residents.length;
 
@@ -86,15 +103,24 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
           const block = resident.units?.block_number;
           const lot = resident.units?.lot_number;
           const unitLabel = block && lot ? ` (Block ${block}, Lot ${lot})` : "";
+          const hasUnit = Boolean(resident.unit_id ?? resident.units?.id);
+          const fallbackLabel = hasUnit ? "" : " (No unit assigned)";
 
           return {
             id: resident.id,
-            label: `${resident.full_name}${unitLabel}`,
-            houseStatus: mapUnitTypeToHouseStatus(resident.units?.unit_type),
+            unitId: resident.unit_id ?? resident.units?.id ?? null,
+            label: `${resident.full_name}${unitLabel || fallbackLabel}`,
+            houseStatus: mapUnitTypeToHouseStatus(
+              resident.units?.unit_type,
+              resident.resident_type,
+            ),
           };
         });
 
-        setResidents(mapped);
+        const filtered = mapped.filter(
+          (resident) => resident.houseStatus === "owner" || resident.houseStatus === "tenant",
+        );
+        setResidents(filtered);
       } catch (error) {
         console.error("[AddBillModal] Resident fetch error:", error);
         setResidents([]);
@@ -121,8 +147,9 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
     setSelectedResidents(next);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitError("");
 
     if (
       selectedResidents.length === 0 ||
@@ -132,18 +159,37 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
       !dueDate ||
       selectedFeatures.length === 0
     ) {
+      setSubmitError("Please complete all required fields.");
       return;
     }
 
-    onCreateBill({
-      residentCount: selectedResidents.length,
+    const selected = residents.filter((resident) =>
+      selectedResidents.includes(resident.id),
+    );
+    const missingUnit = selected.find((resident) => !resident.unitId);
+
+    if (missingUnit) {
+      setSubmitError("Some selected residents are missing a unit assignment.");
+      return;
+    }
+
+    const residentPayload: SelectedResident[] = selected.map((resident) => ({
+      id: resident.id,
+      unitId: resident.unitId!,
+      label: resident.label,
+    }));
+
+    setIsSubmitting(true);
+
+    await onCreateBill({
+      residents: residentPayload,
       amount,
       description: description.trim(),
       billingPeriod,
       dueDate,
       billingFeatures: selectedFeatures,
     });
-
+    setIsSubmitting(false);
     onClose();
   }
 
@@ -187,6 +233,11 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
 
         {/* Scrollable Form */}
         <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-5 overflow-y-auto">
+          {submitError && (
+            <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+              {submitError}
+            </div>
+          )}
           {/* Select Residents */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -201,6 +252,7 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
                     ? "bg-secondary text-white"
                     : "bg-secondary/10 text-secondary hover:bg-secondary/20"
                 }`}
+                disabled={isSubmitting}
               >
                 {allSelected ? "Deselect All" : "Select All"}
               </button>
@@ -215,7 +267,7 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
 
               {!isLoadingResidents && residents.length === 0 && (
                 <div className="px-4 py-6 text-sm text-[#6B7280] text-center">
-                  No residents available for billing.
+                  No residents or tenants available for billing.
                 </div>
               )}
 
@@ -233,6 +285,7 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
                       checked={checked}
                       onChange={() => toggleResident(resident.id)}
                       className="w-4 h-4 rounded accent-secondary"
+                      disabled={isSubmitting}
                     />
                     <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
                       <span className="text-sm font-medium text-[#111827] truncate">{resident.label}</span>
@@ -304,7 +357,7 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
             </button>
 
             {isFeatureMenuOpen && (
-              <div className="absolute z-20 mt-2 w-full bg-white border border-[#E5E7EB] rounded-xl shadow-lg overflow-hidden divide-y divide-[#F3F4F6]">
+              <div className="absolute z-20 top-full left-0 right-0 mt-2 bg-white border border-[#E5E7EB] rounded-xl shadow-lg overflow-hidden divide-y divide-[#F3F4F6]">
                 {DUE_BILLING_FEATURE_OPTIONS.map((feature) => {
                   const checked = selectedFeatures.includes(feature.value);
 
@@ -320,6 +373,7 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
                         checked={checked}
                         onChange={() => toggleFeature(feature.value)}
                         className="w-4 h-4 rounded accent-secondary"
+                        disabled={isSubmitting}
                       />
                       <span className="text-sm font-medium text-[#111827]">{feature.label}</span>
                     </label>
@@ -359,15 +413,17 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
           <div className="pt-2 space-y-2">
             <button
               type="submit"
-              className="w-full py-3.5 bg-secondary hover:bg-secondary/90 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-secondary hover:bg-secondary/90 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60"
+              disabled={isSubmitting}
             >
               <span className="material-icons-round text-[18px]">send</span>
-              Generate &amp; Send Bill
+              {isSubmitting ? "Generating Bill..." : "Generate and Send Bill"}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="w-full py-2.5 text-[#6B7280] text-sm font-medium hover:text-[#111827] transition-colors"
+              disabled={isSubmitting}
             >
               Save as Draft
             </button>

@@ -1,38 +1,33 @@
-type SummaryCard = {
-  label: string;
-  value: string;
-  icon: string;
-  accentClass: string;
-  iconBgClass: string;
-  iconColorClass: string;
-  borderClass: string;
-};
+interface Props {
+  nextDueDate: string;
+  balance: string;
+}
 
-const CARDS: SummaryCard[] = [
-  {
-    label: "Total Balance Due",
-    value: "₱450.00",
-    icon: "account_balance_wallet",
-    accentClass: "text-secondary",
-    iconBgClass: "bg-secondary/10",
-    iconColorClass: "text-secondary",
-    borderClass: "border-l-4 border-secondary",
-  },
-  {
-    label: "Next Payment Date",
-    value: "Oct 01, 2025",
-    icon: "event",
-    accentClass: "text-[#111827]",
-    iconBgClass: "bg-primary/10",
-    iconColorClass: "text-primary",
-    borderClass: "border-l-4 border-primary",
-  },
-];
+export function DuesSummary({ nextDueDate, balance }: Props) {
+  const cards = [
+    {
+      label: "Next Due Date",
+      value: nextDueDate,
+      icon: "event",
+      accentClass: "text-[#111827]",
+      iconBgClass: "bg-primary/10",
+      iconColorClass: "text-primary",
+      borderClass: "border-l-4 border-primary",
+    },
+    {
+      label: "Current Balance",
+      value: balance,
+      icon: "account_balance_wallet",
+      accentClass: "text-secondary",
+      iconBgClass: "bg-secondary/10",
+      iconColorClass: "text-secondary",
+      borderClass: "border-l-4 border-secondary",
+    },
+  ];
 
-export function DuesSummary() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-      {CARDS.map((card) => (
+      {cards.map((card) => (
         <div
           key={card.label}
           className={`bg-white rounded-xl p-6 border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] ${card.borderClass}`}

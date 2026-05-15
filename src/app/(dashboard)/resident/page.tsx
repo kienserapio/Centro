@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { ResidentSidebar } from "./_components/ResidentSidebar";
 import { ResidentHeader } from "./_components/ResidentHeader";
 import { CommunityFeed } from "./_components/CommunityFeed";
@@ -5,8 +8,11 @@ import { AccountPanel } from "./_components/AccountPanel";
 import { QuickActions } from "./_components/QuickActions";
 import { EmergencyButton } from "./_components/EmergencyButton";
 import { MobileNav } from "./_components/MobileNav";
+import { ReportIncidentModal } from "./_components/ReportIncidentModal";
 
 export default function ResidentPage() {
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+
   return (
     <div className="flex min-h-screen relative bg-white">
       <ResidentSidebar />
@@ -31,9 +37,16 @@ export default function ResidentPage() {
         </div>
       </div>
 
-      <EmergencyButton />
+      <EmergencyButton onClick={() => setReportModalOpen(true)} />
       <MobileNav />
+
+      {reportModalOpen && (
+        <ReportIncidentModal
+          mode="report"
+          onClose={() => setReportModalOpen(false)}
+          onSubmitSuccess={() => setReportModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
-

@@ -1,14 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SecuritySidebar } from "../_components/SecuritySidebar";
 import { SecurityMobileNav } from "../_components/SecurityMobileNav";
 import { UnitGrid } from "./_components/UnitGrid";
 
-const TOTAL_UNITS = 428;
-
 export default function UnitDirectoryPage() {
   const [search, setSearch] = useState("");
+  const [totalUnits, setTotalUnits] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch total units count
+  useEffect(() => {
+    async function fetchTotalUnits() {
+      try {
+        const response = await fetch("/api/security/units");
+        if (response.ok) {
+          const data = await response.json();
+          setTotalUnits(data.total || 0);
+        }
+      } catch (err) {
+        console.error("Error fetching units count:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchTotalUnits();
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-[#F8F9FA]">
@@ -20,7 +38,7 @@ export default function UnitDirectoryPage() {
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold text-[#111827]">Unit Directory</h2>
             <span className="px-2 py-0.5 bg-[#F8F9FA] border border-[#E5E7EB] text-[#6B7280] text-[10px] font-bold rounded-full uppercase tracking-tight">
-              {TOTAL_UNITS} Units
+              {loading ? "..." : `${totalUnits} Units`}
             </span>
           </div>
 

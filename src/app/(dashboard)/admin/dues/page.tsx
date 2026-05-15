@@ -12,6 +12,18 @@ const FEATURE_NAMES = Object.fromEntries(
   DUE_BILLING_FEATURE_OPTIONS.map((feature) => [feature.value, feature.label]),
 ) as Record<DueBillingFeature, string>;
 
+type PaymentRow = {
+  id: string;
+  unit_id: string;
+  transaction_type?: string | null;
+  status?: string | null;
+  amount: number;
+  description: string;
+  billing_period: string | null;
+  due_date: string | null;
+  created_at: string;
+};
+
 function toPhp(amount: number) {
   return `₱${amount.toLocaleString("en-PH", {
     minimumFractionDigits: 2,
@@ -21,6 +33,64 @@ function toPhp(amount: number) {
 
 function parsePhp(value: string) {
   return Number(value.replace(/[^\d.]/g, "")) || 0;
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function shortUnitLabel(unitId: string) {
+  return unitId.slice(0, 8).toUpperCase();
+}
+
+function groupPaymentsIntoTransactions(rows: PaymentRow[]): Transaction[] {
+  const groups = new Map<string, PaymentRow[]>();
+
+  rows.forEach((row) => {
+    const groupKey = [
+      row.description,
+      row.billing_period ?? "",
+      row.due_date ?? "",
+      row.amount,
+      row.created_at,
+    ].join("|");
+    const existing = groups.get(groupKey) ?? [];
+    existing.push(row);
+    groups.set(groupKey, existing);
+  });
+
+  return Array.from(groups.entries())
+    .map(([groupKey, groupRows]) => {
+      const [description, billingPeriodRaw, dueDateRaw] = groupKey.split("|");
+      const representative = groupRows[0];
+      const billingPeriod = billingPeriodRaw ? formatDate(billingPeriodRaw) : "One-time";
+      const date = formatDate(dueDateRaw || representative.created_at);
+      const totalAmount = groupRows.reduce((sum, row) => sum + row.amount, 0);
+      const residentCount = groupRows.length;
+
+      return {
+        id: representative.id,
+        initials: residentCount > 1 ? "SB" : shortUnitLabel(representative.unit_id).slice(0, 2),
+        resident: residentCount > 1 ? `${residentCount} Residents` : `Unit ${shortUnitLabel(representative.unit_id)}`,
+        description,
+        billingPeriod,
+        amount: toPhp(totalAmount / 100),
+        status: (representative.transaction_type === "payment" || representative.status === "paid"
+          ? "paid"
+          : representative.transaction_type === "charge" || representative.status === "pending"
+            ? "pending"
+            : "overdue") as Transaction["status"],
+        date,
+      };
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
 export default function DuesPage() {
@@ -146,9 +216,41 @@ export default function DuesPage() {
     );
   }
 
-  function handleCreateBill(newBill: NewBillPayload) {
-    const billTotal = newBill.amount * newBill.residentCount;
+  async function handleCreateBill(newBill: NewBillPayload) {
+    const billTotal = newBill.amount * newBill.residents.length;
     const perFeatureShare = billTotal / newBill.billingFeatures.length;
+
+    const billingPeriod = newBill.billingPeriod
+      ? `${newBill.billingPeriod}-01`
+      : null;
+
+    const supabase = createSupabaseClient();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const response = await fetch("/api/admin/payments", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        residents: newBill.residents,
+        amount: newBill.amount,
+        description: newBill.description,
+        billingPeriod,
+        dueDate: newBill.dueDate || null,
+      }),
+    });
+
+    const respData = await response.json();
+
+    if (!response.ok) {
+      console.error("[Admin Dues] Failed to insert payments:", respData?.error);
+      return;
+    }
+
+    console.debug("[Admin Dues] Inserted payments:", respData);
 
     setSubdivisionRevenueByFeature((current) => {
       const next = { ...current };

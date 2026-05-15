@@ -97,7 +97,7 @@ export function PendingPayments() {
       <div className="px-6 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
         <h4 className="text-[18px] font-semibold text-[#111827] flex items-center gap-2">
           <span className="material-icons-round text-primary">pending_actions</span>
-          Pending Payments
+          Pending Dues
         </h4>
         <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">
           {isLoading ? "—" : `${pending.length} Items Outstanding`}
@@ -166,6 +166,16 @@ export function PendingPayments() {
                 </td>
               </tr>
             ))}
+            {items.length === 0 && (
+              <tr>
+                <td
+                  colSpan={4}
+                  className="px-6 py-8 text-center text-sm text-[#6B7280]"
+                >
+                  No pending dues found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

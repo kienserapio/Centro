@@ -241,6 +241,18 @@ export async function POST(request: NextRequest) {
             email: newUser.user.email,
         });
 
+        const { error: profileUpdateError } = await supabaseAdmin
+            .from("profiles")
+            .update({
+                full_name,
+                phone: phone ?? null,
+            })
+            .eq("id", newUser.user.id);
+
+        if (profileUpdateError) {
+            console.error("[CREATE-USER] Profile update failed:", profileUpdateError.message);
+        }
+
         // ── 6. Link resident to a unit and set occupancy if unit data exists ──
         if (
             normalizedRole === "resident" &&
@@ -250,21 +262,55 @@ export async function POST(request: NextRequest) {
             const cleanBlock = String(parsedUnit.block_number).replace(/^Block\s*/i, "").trim();
             const cleanLot = String(parsedUnit.lot_number).replace(/^Lot\s*/i, "").trim();
             const cleanPhase = parsedUnit.phase ? String(parsedUnit.phase).replace(/^Phase\s*/i, "").trim() : null;
+            const phaseLabel = cleanPhase ? `Phase ${cleanPhase}` : null;
             const addressLabel = parsedUnit.address_label?.trim() || `Block ${cleanBlock}, Lot ${cleanLot}`;
             const unitType = normalizedResidentType === "owner" ? "owned" : "rented";
 
             let unitId: string | null = null;
+            let phaseId: string | null = null;
+
+            if (cleanPhase) {
+                const { data: foundPhase, error: phaseReadError } = await supabaseAdmin
+                    .from("phases")
+                    .select("id")
+                    .eq("name", phaseLabel)
+                    .single();
+
+                if (!phaseReadError && foundPhase) {
+                    phaseId = foundPhase.id;
+                } else {
+                    const { data: legacyPhase, error: legacyReadError } = await supabaseAdmin
+                        .from("phases")
+                        .select("id")
+                        .eq("name", cleanPhase)
+                        .single();
+
+                    if (!legacyReadError && legacyPhase) {
+                        phaseId = legacyPhase.id;
+                    } else {
+                        const { data: insertedPhase, error: phaseInsertError } = await supabaseAdmin
+                            .from("phases")
+                            .insert({ name: phaseLabel })
+                            .select("id")
+                            .single();
+
+                        if (phaseInsertError) {
+                            console.error("[CREATE-USER] Phase create failed:", phaseInsertError.message);
+                        } else {
+                            phaseId = insertedPhase.id;
+                        }
+                    }
+                }
+            }
 
             const unitLookup = supabaseAdmin
                 .from("units")
-                .select("id")
+                .select("id, owner_id, phase_id")
                 .eq("block_number", cleanBlock)
                 .eq("lot_number", cleanLot)
                 .limit(1);
 
-            const { data: foundUnits, error: lookupError } = cleanPhase
-                ? await unitLookup.eq("phase", cleanPhase)
-                : await unitLookup;
+            const { data: foundUnits, error: lookupError } = await unitLookup;
 
             if (lookupError) {
                 console.error("[CREATE-USER] Unit lookup failed:", lookupError.message);
@@ -278,7 +324,7 @@ export async function POST(request: NextRequest) {
                     .insert({
                         block_number: cleanBlock,
                         lot_number: cleanLot,
-                        phase: cleanPhase,
+                        phase_id: phaseId,
                         address_label: addressLabel,
                         unit_type: unitType,
                         owner_id: normalizedResidentType === "owner" ? newUser.user.id : null,
@@ -295,9 +341,17 @@ export async function POST(request: NextRequest) {
                 const unitUpdates: {
                     unit_type: "owned" | "rented";
                     owner_id?: string;
+                    phase_id?: string | null;
+                    address_label?: string;
                 } = {
                     unit_type: unitType,
                 };
+
+                if (phaseId) {
+                    unitUpdates.phase_id = phaseId;
+                }
+
+                unitUpdates.address_label = addressLabel;
 
                 if (normalizedResidentType === "owner") {
                     unitUpdates.owner_id = newUser.user.id;
@@ -314,13 +368,17 @@ export async function POST(request: NextRequest) {
             }
 
             if (unitId) {
-                const { error: profileUnitError } = await supabaseAdmin
-                    .from("profiles")
-                    .update({ unit_id: unitId })
-                    .eq("id", newUser.user.id);
+                const { error: unitResidentError } = await supabaseAdmin
+                    .from("unit_residents")
+                    .upsert({
+                        unit_id: unitId,
+                        profile_id: newUser.user.id,
+                        resident_type: normalizedResidentType,
+                        is_primary: true,
+                    }, { onConflict: "unit_id,profile_id" });
 
-                if (profileUnitError) {
-                    console.error("[CREATE-USER] Profile unit link failed:", profileUnitError.message);
+                if (unitResidentError) {
+                    console.error("[CREATE-USER] unit_residents link failed:", unitResidentError.message);
                 }
             }
         }

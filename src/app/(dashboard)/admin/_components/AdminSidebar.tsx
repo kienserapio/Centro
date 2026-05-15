@@ -11,6 +11,7 @@ const NAV_MAIN = [
   { label: "Incident Reports", href: "/admin/incident-reports", icon: "report" },
   { label: "Roles & Permissions", href: "/admin/roles", icon: "admin_panel_settings" },
   { label: "Announcements", href: "/admin/posts", icon: "campaign" },
+  { label: "Locations", href: "/admin/locations", icon: "location_on" },
 ];
 
 const NAV_TOOLS = [

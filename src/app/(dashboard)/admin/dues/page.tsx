@@ -1,55 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminSidebar } from "../_components/AdminSidebar";
 import { AdminMobileNav } from "../_components/AdminMobileNav";
 import { TransactionsListing, Transaction } from "./_components/TransactionsListing";
 import { AddBillModal, NewBillPayload } from "./_components/AddBillModal";
 import { DUE_BILLING_FEATURE_OPTIONS, DueBillingFeature } from "@/lib/types";
-import { createClient as createSupabaseClient } from "@/lib/supabase/client";
-
-const SEED_TRANSACTIONS: Transaction[] = [
-  {
-    id: 1,
-    initials: "JD",
-    resident: "John Doe (A-102)",
-    description: "Maintenance Fee",
-    billingPeriod: "Oct 2023",
-    amount: "₱250.00",
-    status: "paid",
-    date: "Oct 12, 2023",
-  },
-  {
-    id: 2,
-    initials: "SS",
-    resident: "Sarah Smith (B-405)",
-    description: "Utility Charges",
-    billingPeriod: "Oct 2023",
-    amount: "₱115.50",
-    status: "pending",
-    date: "Oct 10, 2023",
-  },
-  {
-    id: 3,
-    initials: "MW",
-    resident: "Michael Wong (C-001)",
-    description: "Clubhouse Deposit",
-    billingPeriod: "One-time",
-    amount: "₱500.00",
-    status: "overdue",
-    date: "Oct 05, 2023",
-  },
-  {
-    id: 4,
-    initials: "EL",
-    resident: "Elena Lopez (A-302)",
-    description: "Maintenance Fee",
-    billingPeriod: "Oct 2023",
-    amount: "₱250.00",
-    status: "paid",
-    date: "Oct 04, 2023",
-  },
-];
+import { createClient } from "@/lib/supabase/client";
 
 const FEATURE_NAMES = Object.fromEntries(
   DUE_BILLING_FEATURE_OPTIONS.map((feature) => [feature.value, feature.label]),
@@ -139,6 +96,8 @@ function groupPaymentsIntoTransactions(rows: PaymentRow[]): Transaction[] {
 export default function DuesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoadingPayments, setIsLoadingPayments] = useState(true);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [isRevenueFilterOpen, setIsRevenueFilterOpen] = useState(false);
   const [selectedRevenueFeatures, setSelectedRevenueFeatures] = useState<DueBillingFeature[]>(
     DUE_BILLING_FEATURE_OPTIONS.map((feature) => feature.value),
@@ -169,31 +128,85 @@ export default function DuesPage() {
 
   const subdivisionRevenueTotal = baseCollection + filteredFeatureRevenue;
 
-  useEffect(() => {
-    async function loadTransactions() {
-      const supabase = createSupabaseClient();
-      const { data: rows, error } = await supabase
+  const pendingTotal = useMemo(() =>
+    transactions
+      .filter((tx) => tx.status === "pending")
+      .reduce((sum, tx) => sum + parsePhp(tx.amount), 0),
+    [transactions],
+  );
+
+  const pendingCount = useMemo(() =>
+    transactions.filter((tx) => tx.status === "pending").length,
+    [transactions],
+  );
+
+  const fetchPayments = useCallback(async () => {
+    try {
+      setIsLoadingPayments(true);
+      const supabase = createClient();
+      const { data: payments, error } = await supabase
         .from("payments")
-        .select("id, unit_id, transaction_type, status, amount, description, billing_period, due_date, created_at")
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .select(
+          "id, amount, status, description, created_at, billing_period, unit:units(block_number, lot_number), resident:profiles!payments_recorded_by_fkey(full_name)",
+        )
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.warn("[Admin Dues] Failed to load recent transactions.", error.message);
-        setTransactions(SEED_TRANSACTIONS);
-        return;
-      }
-
-      if (rows.length === 0) {
+        console.error("[DuesPage] Payments fetch error:", error.message);
         setTransactions([]);
         return;
       }
 
-      setTransactions(groupPaymentsIntoTransactions(rows));
-    }
+      const mapped = (payments ?? []).map((payment) => {
+        const residentRow = Array.isArray(payment.resident)
+          ? payment.resident[0]
+          : payment.resident;
+        const unitRow = Array.isArray(payment.unit)
+          ? payment.unit[0]
+          : payment.unit;
+        const amount = Number(payment.amount ?? 0);
+        const fullName = residentRow?.full_name ?? "Resident";
+        const block = unitRow?.block_number;
+        const lot = unitRow?.lot_number;
+        const unitLabel = block && lot ? ` (Block ${block}, Lot ${lot})` : "";
+        const initials = fullName
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toUpperCase() ?? "")
+          .join("") || "—";
 
-    loadTransactions();
+        const status = payment.status === "completed"
+          ? "paid"
+          : payment.status === "pending"
+            ? "pending"
+            : "overdue";
+
+        return {
+          id: payment.id,
+          initials,
+          resident: `${fullName}${unitLabel}`,
+          description: payment.description ?? "Payment",
+          billingPeriod: payment.billing_period
+            ? new Date(payment.billing_period).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+            : "—",
+          amount: toPhp(amount),
+          status,
+          date: payment.created_at
+            ? new Date(payment.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+            : "—",
+        } as Transaction;
+      });
+
+      setTransactions(mapped);
+    } finally {
+      setIsLoadingPayments(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
 
   function toggleRevenueFeature(feature: DueBillingFeature) {
     setSelectedRevenueFeatures((current) =>
@@ -249,19 +262,34 @@ export default function DuesPage() {
       return next;
     });
 
-    // Refresh from the database so the recent list stays in sync with saved bills.
-    const { data: refreshedRows, error: refreshError } = await supabase
-      .from("payments")
-      .select("id, unit_id, transaction_type, status, amount, description, billing_period, due_date, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const featureLabel = newBill.billingFeatures
+      .map((feature) => FEATURE_NAMES[feature])
+      .join(", ");
 
-    if (refreshError) {
-      console.warn("[Admin Dues] Failed to refresh recent transactions.", refreshError.message);
-      return;
+    void featureLabel;
+  }
+
+  async function handleApprove(paymentId: string) {
+    setApprovingId(paymentId);
+    try {
+      const res = await fetch(`/api/admin/payments/${paymentId}/approve`, {
+        method: "POST",
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[DuesPage] Approve failed:", data.error);
+        alert(data.error || "Failed to approve payment.");
+        return;
+      }
+
+      await fetchPayments();
+    } catch (error) {
+      console.error("[DuesPage] Approve error:", error);
+      alert("Network error while approving payment.");
+    } finally {
+      setApprovingId(null);
     }
-
-    setTransactions(groupPaymentsIntoTransactions(refreshedRows ?? []).slice(0, 10));
   }
 
   return (
@@ -356,10 +384,10 @@ export default function DuesPage() {
             <div className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-[#6B7280] text-sm font-medium">Pending Dues</p>
-                <h3 className="text-3xl font-bold mt-1 text-[#111827]">₱12,400</h3>
+                <h3 className="text-3xl font-bold mt-1 text-[#111827]">{toPhp(pendingTotal)}</h3>
                 <p className="text-red-500 text-xs font-semibold mt-2 flex items-center gap-1">
                   <span className="material-icons-round text-sm">priority_high</span>
-                  14 residents overdue
+                  {pendingCount} payment{pendingCount === 1 ? "" : "s"} pending
                 </p>
               </div>
               <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center shrink-0">
@@ -428,7 +456,18 @@ export default function DuesPage() {
           </div>
 
           {/* Transactions Table — full width */}
-          <TransactionsListing transactions={transactions} />
+          {isLoadingPayments ? (
+            <div className="flex items-center justify-center py-20 text-[#6B7280]">
+              <span className="material-icons-round animate-spin mr-2">refresh</span>
+              Loading payments...
+            </div>
+          ) : (
+            <TransactionsListing
+              transactions={transactions}
+              onApprove={handleApprove}
+              approvingId={approvingId}
+            />
+          )}
         </div>
       </div>
 

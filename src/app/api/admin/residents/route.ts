@@ -30,19 +30,34 @@ export async function GET() {
 
         const supabase = createServiceClient(supabaseUrl, serviceRoleKey);
 
-        const { data: residents, error } = await supabase
-            .from("profiles")
-            .select(`
-        id,
-        full_name,
-        role,
-        phone,
-        avatar_url,
-        is_active,
-        created_at
-    `)
-            .eq("role", "resident")
-            .order("created_at", { ascending: false });
+                // Fetch resident profiles — join unit_residents + units + phases
+                const { data: residents, error } = await supabase
+                        .from("profiles")
+                        .select(`
+                id,
+                full_name,
+                username,
+                email,
+                role,
+                phone,
+                avatar_url,
+                is_active,
+                created_at,
+                unit_residents:unit_residents (
+                    resident_type,
+                    is_primary,
+                    unit:units (
+                        id,
+                        block_number,
+                        lot_number,
+                        address_label,
+                        unit_type,
+                        phase:phases (name)
+                    )
+                )
+            `)
+                        .eq("role", "resident")
+                        .order("created_at", { ascending: false });
 
         if (error) {
             console.error("[GET /api/admin/residents] Error:", error);
@@ -52,99 +67,43 @@ export async function GET() {
             );
         }
 
-        const profileIds = (residents ?? []).map((resident) => resident.id);
+        const normalized = (residents ?? []).map((row) => {
+            const links = Array.isArray(row.unit_residents) ? row.unit_residents : [];
+            const primary = links.find((link) => link.is_primary) ?? links[0];
+            const unit = primary?.unit ?? null;
+            const rawPhaseName = unit?.phase?.name ?? null;
+            const phaseName = rawPhaseName
+                ? (rawPhaseName.toLowerCase().startsWith("phase")
+                    ? rawPhaseName
+                    : `Phase ${rawPhaseName}`)
+                : null;
 
-        let unitLinks: { profile_id: string; unit_id: string; resident_type: string | null }[] = [];
-        if (profileIds.length > 0) {
-            const { data: links, error: linksError } = await supabase
-                .from("unit_residents")
-                .select("profile_id, unit_id, resident_type")
-                .in("profile_id", profileIds);
-
-            if (linksError) {
-                console.error("[GET /api/admin/residents] Unit residents lookup error:", linksError);
-                return NextResponse.json(
-                    { error: linksError.message ?? "Failed to fetch unit residents." },
-                    { status: 500 },
-                );
-            }
-
-            unitLinks = (links ?? []) as {
-                profile_id: string;
-                unit_id: string;
-                resident_type: string | null;
-            }[];
-        }
-
-        const linkedProfiles = new Set(unitLinks.map((link) => link.profile_id));
-        const missingProfileIds = profileIds.filter((id) => !linkedProfiles.has(id));
-
-        if (missingProfileIds.length > 0) {
-            const { data: ownerUnits, error: ownerUnitsError } = await supabase
-                .from("units")
-                .select("id, owner_id")
-                .in("owner_id", missingProfileIds);
-
-            if (ownerUnitsError) {
-                console.error("[GET /api/admin/residents] Owner units lookup error:", ownerUnitsError);
-            } else {
-                (ownerUnits ?? []).forEach((unit) => {
-                    if (unit.owner_id) {
-                        unitLinks.push({
-                            profile_id: unit.owner_id,
-                            unit_id: unit.id,
-                            resident_type: "owner",
-                        });
-                    }
-                });
-            }
-        }
-
-        const unitIds = unitLinks
-            .map((link) => link.unit_id)
-            .filter((unitId): unitId is string => Boolean(unitId));
-
-        let unitsById = new Map<string, {
-            id: string;
-            block_number: string | null;
-            lot_number: string | null;
-            phase: string | null;
-            address_label: string | null;
-            unit_type: "owned" | "rented" | "vacant" | null;
-        }>();
-
-        if (unitIds.length > 0) {
-            const { data: units, error: unitsError } = await supabase
-                .from("units")
-                .select("id, block_number, lot_number, phase, address_label, unit_type")
-                .in("id", unitIds);
-
-            if (unitsError) {
-                console.error("[GET /api/admin/residents] Units lookup error:", unitsError);
-            } else {
-                unitsById = new Map((units ?? []).map((unit) => [unit.id, unit]));
-            }
-        }
-
-        const unitIdByProfileId = new Map(
-            unitLinks.map((link) => [link.profile_id, link.unit_id]),
-        );
-        const residentTypeByProfileId = new Map(
-            unitLinks.map((link) => [link.profile_id, link.resident_type]),
-        );
-
-        const payload = (residents ?? []).map((resident) => {
-            const unitId = unitIdByProfileId.get(resident.id) ?? null;
+            const fallbackName = row.full_name || row.username || row.email || "—";
 
             return {
-                ...resident,
-                unit_id: unitId,
-                units: unitId ? unitsById.get(unitId) ?? null : null,
-                resident_type: residentTypeByProfileId.get(resident.id) ?? null,
+                id: row.id,
+                full_name: fallbackName,
+                email: row.email ?? null,
+                username: row.username ?? null,
+                role: row.role,
+                phone: row.phone,
+                avatar_url: row.avatar_url,
+                is_active: row.is_active,
+                created_at: row.created_at,
+                units: unit
+                    ? {
+                        id: unit.id,
+                        block_number: unit.block_number,
+                        lot_number: unit.lot_number,
+                        phase: phaseName,
+                        address_label: unit.address_label,
+                        unit_type: unit.unit_type,
+                    }
+                    : null,
             };
         });
 
-        return NextResponse.json(payload);
+        return NextResponse.json(normalized);
     } catch (err) {
         console.error("[GET /api/admin/residents] Internal error:", err);
         return NextResponse.json({ error: "Internal error." }, { status: 500 });

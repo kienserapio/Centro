@@ -20,6 +20,8 @@ function buildAddress(units: { block_number?: string; lot_number?: string; phase
 interface ProfileFromApi {
   id: string;
   full_name: string;
+  email: string | null;
+  username: string | null;
   role: string;
   phone: string | null;
   avatar_url: string | null;
@@ -64,9 +66,18 @@ export default function ResidentsPage() {
       const mapped: Resident[] = data.map((p: ProfileFromApi) => ({
         id: p.id,
         name: p.full_name || "—",
-        email: "",
+        email: p.email ?? "",
+        username: p.username ?? "",
         role: "Resident",
         address: buildAddress(p.units),
+        unit: p.units
+          ? {
+              phase: p.units.phase ?? null,
+              block_number: p.units.block_number,
+              lot_number: p.units.lot_number,
+              address_label: p.units.address_label,
+            }
+          : null,
         duesStatus: "pending" as const,
         phone: p.phone ?? "",
         avatar: p.avatar_url ?? "",
@@ -93,14 +104,21 @@ export default function ResidentsPage() {
   /** After saving edits, call PATCH API and re-fetch */
   async function handleSaveResident(updated: Resident) {
     try {
+      const payload: Record<string, unknown> = {
+        full_name: updated.name,
+        phone: updated.phone,
+        resident_type: updated.houseStatus === "tenant" ? "tenant" : "owner",
+        unit: updated.unit ?? null,
+      };
+
+      if (updated.email) payload.email = updated.email;
+      if (updated.username) payload.username = updated.username;
+      if (updated.password) payload.password = updated.password;
+
       const res = await fetch(`/api/admin/users/${updated.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          full_name: updated.name,
-          phone: updated.phone,
-          resident_type: updated.houseStatus === "tenant" ? "tenant" : "owner",
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();

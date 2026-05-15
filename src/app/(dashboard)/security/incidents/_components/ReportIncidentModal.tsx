@@ -18,6 +18,14 @@ const CATEGORIES = [
   "Other",
 ];
 
+function getIncidentId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `inc_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
 export function ReportIncidentModal({ onClose, onAdd }: Props) {
   const [form, setForm] = useState({
     category: CATEGORIES[0],
@@ -42,7 +50,7 @@ export function ReportIncidentModal({ onClose, onAdd }: Props) {
 
     const now = new Date();
     onAdd({
-      id: crypto.randomUUID(),
+      id: getIncidentId(),
       date: now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
       category: form.category,

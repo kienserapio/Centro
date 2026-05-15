@@ -1,9 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+function toPhp(amount: number) {
+  if (amount >= 1_000_000) return `₱${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `₱${(amount / 1_000).toFixed(1)}k`;
+  return `₱${amount.toFixed(2)}`;
+}
 
 export function StatsCards() {
   const [residentCount, setResidentCount] = useState<number | null>(null);
+  const [duesCollection, setDuesCollection] = useState(0);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [ytdRevenue, setYtdRevenue] = useState(0);
 
   useEffect(() => {
     fetch("/api/admin/residents")
@@ -12,13 +22,58 @@ export function StatsCards() {
       .catch(() => setResidentCount(null));
   }, []);
 
+  useEffect(() => {
+    async function loadPaymentStats() {
+      try {
+        const supabase = createClient();
+        const { data: payments, error } = await supabase
+          .from("payments")
+          .select("amount, status, created_at");
+
+        if (error || !payments) return;
+
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+
+        let totalPaid = 0;
+        let pendingCount = 0;
+        let ytdTotal = 0;
+
+        payments.forEach((p) => {
+          const amount = Number(p.amount ?? 0);
+          const status = p.status === "completed" ? "paid" : p.status === "pending" ? "pending" : "overdue";
+          const createdAt = new Date(p.created_at);
+
+          if (status === "paid") {
+            totalPaid += amount;
+            if (createdAt.getFullYear() === currentYear) {
+              ytdTotal += amount;
+            }
+          }
+          if (status === "pending") {
+            pendingCount++;
+          }
+        });
+
+        setDuesCollection(totalPaid);
+        setPendingApprovals(pendingCount);
+        setYtdRevenue(ytdTotal);
+      } catch {
+        // ignore
+      }
+    }
+
+    void loadPaymentStats();
+  }, []);
+
   const displayCount =
     residentCount === null ? "—" : residentCount.toLocaleString();
 
   const STATS = [
     {
       label: "Dues Collection",
-      value: "₱142.5k",
+      value: toPhp(duesCollection),
       cardClass: "bg-white border border-[#E5E7EB]",
       icon: undefined as string | undefined,
       iconBg: undefined as string | undefined,
@@ -26,7 +81,7 @@ export function StatsCards() {
       extra: (
         <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 w-fit px-2 py-1 rounded-full">
           <span className="material-icons-round text-sm">trending_up</span>
-          12% from last month
+          All approved payments
         </div>
       ),
     },
@@ -50,7 +105,7 @@ export function StatsCards() {
     },
     {
       label: "Pending Approvals",
-      value: "14",
+      value: pendingApprovals.toString(),
       icon: "pending_actions",
       iconBg: "bg-orange-100",
       iconColor: "text-orange-500",
@@ -61,13 +116,13 @@ export function StatsCards() {
     },
     {
       label: "YTD Revenue",
-      value: "₱1.2M",
+      value: toPhp(ytdRevenue),
       icon: "account_balance_wallet",
       iconBg: "bg-white/20",
       iconColor: "text-white",
       cardClass: "bg-secondary border border-secondary",
       extra: (
-        <p className="text-xs text-white/60 mt-2">Fiscal year 2025</p>
+        <p className="text-xs text-white/60 mt-2">Fiscal year {new Date().getFullYear()}</p>
       ),
     },
   ];

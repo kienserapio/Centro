@@ -16,56 +16,72 @@ export function PendingPayments() {
   const [isLoading, setIsLoading] = useState(true);
   const [payingId, setPayingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  async function load() {
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (!user) return;
+      if (!user) return;
 
-        const { data: links } = await supabase
-          .from("unit_residents")
-          .select("unit_id, is_primary")
-          .eq("profile_id", user.id)
-          .order("is_primary", { ascending: false });
+      const { data: links } = await supabase
+        .from("unit_residents")
+        .select("unit_id, is_primary")
+        .eq("profile_id", user.id)
+        .order("is_primary", { ascending: false });
 
-        const unitId = links?.[0]?.unit_id;
-        if (!unitId) return;
+      const unitId = links?.[0]?.unit_id;
+      if (!unitId) return;
 
         const { data: dues } = await supabase
           .from("dues")
-          .select("id, description, amount, amount_paid, due_date, status")
-          .eq("unit_id", unitId)
-          .is("deleted_at", null)
-          .order("due_date", { ascending: true });
+          .select("id, description, amount, amount_paid, due_date, status, billing_period")
+        .eq("unit_id", unitId)
+        .is("deleted_at", null)
+        .order("due_date", { ascending: true });
 
-        const rows = (dues ?? [])
-          .filter((due) => due.status !== "paid")
-          .map((due) => {
-            const amount = Number(due.amount ?? 0);
-            const paid = Number(due.amount_paid ?? 0);
-            const remaining = Math.max(amount - paid, 0);
-            return {
-              id: due.id,
-              description: due.description,
-              subtext: paid > 0 ? `Paid ₱${paid.toFixed(2)} so far` : "Outstanding balance",
-              amount: `₱${remaining.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-              dueDate: due.due_date
-                ? new Date(due.due_date).toLocaleDateString("en-PH", { month: "short", day: "2-digit", year: "numeric" })
-                : "—",
-            };
-          });
+      const { data: pendingPayments } = await supabase
+        .from("payments")
+        .select("description, due_date, billing_period")
+        .eq("unit_id", unitId)
+        .eq("status", "pending");
 
-        setPending(rows);
-      } finally {
-        setIsLoading(false);
-      }
+      const submittedKeys = new Set(
+        (pendingPayments ?? []).map(
+          (p) => `${p.description}|${p.due_date ?? ""}|${p.billing_period ?? ""}`
+        )
+      );
+
+      const rows = (dues ?? [])
+        .filter((due) => {
+          if (due.status === "paid") return false;
+          const key = `${due.description}|${due.due_date ?? ""}|${due.billing_period ?? ""}`;
+          return !submittedKeys.has(key);
+        })
+        .map((due) => {
+          const amount = Number(due.amount ?? 0);
+          const paid = Number(due.amount_paid ?? 0);
+          const remaining = Math.max(amount - paid, 0);
+          return {
+            id: due.id,
+            description: due.description,
+            subtext: paid > 0 ? `Paid ₱${paid.toFixed(2)} so far` : "Outstanding balance",
+            amount: `₱${remaining.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            dueDate: due.due_date
+              ? new Date(due.due_date).toLocaleDateString("en-PH", { month: "short", day: "2-digit", year: "numeric" })
+              : "—",
+          };
+        });
+
+      setPending(rows);
+    } finally {
+      setIsLoading(false);
     }
+  }
 
-    load();
+  useEffect(() => {
+    void load();
   }, []);
 
   async function handlePayNow(dueId: string) {
@@ -83,6 +99,7 @@ export function PendingPayments() {
         return;
       }
 
+      setPending((prev) => prev.filter((item) => item.id !== dueId));
       alert("Payment request submitted. Please wait for admin confirmation.");
     } catch {
       alert("Network error while submitting payment.");
@@ -93,7 +110,6 @@ export function PendingPayments() {
 
   return (
     <section className="bg-white rounded-xl border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] overflow-hidden mb-8">
-      {/* Header */}
       <div className="px-6 py-5 border-b border-[#E5E7EB] flex items-center justify-between">
         <h4 className="text-[18px] font-semibold text-[#111827] flex items-center gap-2">
           <span className="material-icons-round text-primary">pending_actions</span>
@@ -104,7 +120,6 @@ export function PendingPayments() {
         </span>
       </div>
 
-      {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
@@ -166,16 +181,6 @@ export function PendingPayments() {
                 </td>
               </tr>
             ))}
-            {items.length === 0 && (
-              <tr>
-                <td
-                  colSpan={4}
-                  className="px-6 py-8 text-center text-sm text-[#6B7280]"
-                >
-                  No pending dues found.
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>

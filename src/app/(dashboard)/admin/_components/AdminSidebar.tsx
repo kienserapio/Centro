@@ -15,7 +15,6 @@ const NAV_MAIN = [
 ];
 
 const NAV_TOOLS = [
-  { label: "Settings", href: "/admin/settings", icon: "settings" },
   { label: "Help Desk", href: "/admin/help", icon: "help_outline" },
 ];
 

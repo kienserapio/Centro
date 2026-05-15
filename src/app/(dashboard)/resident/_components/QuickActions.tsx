@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useState } from "react";
 import { GuestPassModal } from "./GuestPassModal";
 import { JobRequestModal } from "./JobRequestModal";
+import { PermitModal } from "./PermitModal";
+import { BookVenueModal } from "./BookVenueModal";
 
 const ACTIONS = [
   { icon: "directions_car", label: "Guest Pass" },
@@ -15,26 +16,23 @@ const ACTIONS = [
 export function QuickActions() {
   const [isGuestPassOpen, setIsGuestPassOpen] = useState(false);
   const [isJobRequestOpen, setIsJobRequestOpen] = useState(false);
-
-  const visibleActions = ACTIONS;
+  const [isPermitOpen, setIsPermitOpen] = useState(false);
+  const [isBookVenueOpen, setIsBookVenueOpen] = useState(false);
 
   return (
     <>
       <section className="bg-white rounded-xl p-6 border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)]">
         <h2 className="font-semibold text-[18px] text-[#111827] mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 gap-3">
-          {visibleActions.map((action) => (
+          {ACTIONS.map((action) => (
             <button
               key={action.label}
               type="button"
               onClick={() => {
-                if (action.label === "Guest Pass") {
-                  setIsGuestPassOpen(true);
-                }
-
-                if (action.label === "Job Request") {
-                  setIsJobRequestOpen(true);
-                }
+                if (action.label === "Guest Pass") setIsGuestPassOpen(true);
+                if (action.label === "Book Venue") setIsBookVenueOpen(true);
+                if (action.label === "Job Request") setIsJobRequestOpen(true);
+                if (action.label === "Permits") setIsPermitOpen(true);
               }}
               className="p-4 rounded-xl border border-[#E5E7EB] hover:border-secondary/40 hover:bg-secondary/5 transition-all text-center"
             >
@@ -49,6 +47,8 @@ export function QuickActions() {
 
       {isGuestPassOpen && <GuestPassModal onClose={() => setIsGuestPassOpen(false)} />}
       {isJobRequestOpen && <JobRequestModal onClose={() => setIsJobRequestOpen(false)} />}
+      {isPermitOpen && <PermitModal onClose={() => setIsPermitOpen(false)} />}
+      {isBookVenueOpen && <BookVenueModal onClose={() => setIsBookVenueOpen(false)} />}
     </>
   );
 }

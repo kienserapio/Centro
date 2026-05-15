@@ -5,12 +5,7 @@ import { AdminSidebar } from "../_components/AdminSidebar";
 import { AdminMobileNav } from "../_components/AdminMobileNav";
 import { TransactionsListing, Transaction } from "./_components/TransactionsListing";
 import { AddBillModal, NewBillPayload } from "./_components/AddBillModal";
-import { DUE_BILLING_FEATURE_OPTIONS, DueBillingFeature } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
-
-const FEATURE_NAMES = Object.fromEntries(
-  DUE_BILLING_FEATURE_OPTIONS.map((feature) => [feature.value, feature.label]),
-) as Record<DueBillingFeature, string>;
 
 type PaymentRow = {
   id: string;
@@ -23,6 +18,8 @@ type PaymentRow = {
   due_date: string | null;
   created_at: string;
 };
+
+type ExtendedTransaction = Transaction & { rawAmount: number; rawCreatedAt: string };
 
 function toPhp(amount: number) {
   return `₱${amount.toLocaleString("en-PH", {
@@ -95,38 +92,15 @@ function groupPaymentsIntoTransactions(rows: PaymentRow[]): Transaction[] {
 
 export default function DuesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<ExtendedTransaction[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [isRevenueFilterOpen, setIsRevenueFilterOpen] = useState(false);
-  const [selectedRevenueFeatures, setSelectedRevenueFeatures] = useState<DueBillingFeature[]>(
-    DUE_BILLING_FEATURE_OPTIONS.map((feature) => feature.value),
-  );
-  const [subdivisionRevenueByFeature, setSubdivisionRevenueByFeature] = useState<
-    Record<DueBillingFeature, number>
-  >({
-    facilities: 0,
-    rentable_items: 0,
-    parks: 0,
-    clubhouse: 0,
-    guest_parking: 0,
-  });
+  const [subdivisionRevenueThisMonth, setSubdivisionRevenueThisMonth] = useState(0);
 
   const baseCollection = useMemo(
     () => transactions.reduce((sum, tx) => sum + parsePhp(tx.amount), 0),
     [transactions],
   );
-
-  const filteredFeatureRevenue = useMemo(
-    () =>
-      selectedRevenueFeatures.reduce(
-        (sum, feature) => sum + subdivisionRevenueByFeature[feature],
-        0,
-      ),
-    [selectedRevenueFeatures, subdivisionRevenueByFeature],
-  );
-
-  const subdivisionRevenueTotal = baseCollection + filteredFeatureRevenue;
 
   const pendingTotal = useMemo(() =>
     transactions
@@ -195,10 +169,27 @@ export default function DuesPage() {
           date: payment.created_at
             ? new Date(payment.created_at).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
             : "—",
-        } as Transaction;
+          rawAmount: amount,
+          rawCreatedAt: payment.created_at,
+        } as Transaction & { rawAmount: number; rawCreatedAt: string };
       });
 
       setTransactions(mapped);
+
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const monthRevenue = (payments ?? [])
+        .filter((p) => {
+          const status = p.status === "completed" ? "paid" : p.status === "pending" ? "pending" : "overdue";
+          if (status !== "paid") return false;
+          const createdAt = new Date(p.created_at);
+          return createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear;
+        })
+        .reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
+
+      setSubdivisionRevenueThisMonth(monthRevenue);
     } finally {
       setIsLoadingPayments(false);
     }
@@ -208,65 +199,8 @@ export default function DuesPage() {
     fetchPayments();
   }, [fetchPayments]);
 
-  function toggleRevenueFeature(feature: DueBillingFeature) {
-    setSelectedRevenueFeatures((current) =>
-      current.includes(feature)
-        ? current.filter((selected) => selected !== feature)
-        : [...current, feature],
-    );
-  }
-
   async function handleCreateBill(newBill: NewBillPayload) {
-    const billTotal = newBill.amount * newBill.residents.length;
-    const perFeatureShare = billTotal / newBill.billingFeatures.length;
-
-    const billingPeriod = newBill.billingPeriod
-      ? `${newBill.billingPeriod}-01`
-      : null;
-
-    const supabase = createSupabaseClient();
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const response = await fetch("/api/admin/payments", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        residents: newBill.residents,
-        amount: newBill.amount,
-        description: newBill.description,
-        billingPeriod,
-        dueDate: newBill.dueDate || null,
-      }),
-    });
-
-    const respData = await response.json();
-
-    if (!response.ok) {
-      console.error("[Admin Dues] Failed to insert payments:", respData?.error);
-      return;
-    }
-
-    console.debug("[Admin Dues] Inserted payments:", respData);
-
-    setSubdivisionRevenueByFeature((current) => {
-      const next = { ...current };
-
-      newBill.billingFeatures.forEach((feature) => {
-        next[feature] += perFeatureShare;
-      });
-
-      return next;
-    });
-
-    const featureLabel = newBill.billingFeatures
-      .map((feature) => FEATURE_NAMES[feature])
-      .join(", ");
-
-    void featureLabel;
+    void newBill;
   }
 
   async function handleApprove(paymentId: string) {
@@ -323,10 +257,10 @@ export default function DuesPage() {
             <div className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-[#6B7280] text-sm font-medium">Subdivision Revenue (This Month)</p>
-                <h3 className="text-3xl font-bold mt-1 text-[#111827]">{toPhp(subdivisionRevenueTotal)}</h3>
+                <h3 className="text-3xl font-bold mt-1 text-[#111827]">{toPhp(subdivisionRevenueThisMonth)}</h3>
                 <p className="text-emerald-600 text-xs font-semibold mt-2 flex items-center gap-1">
                   <span className="material-icons-round text-sm">trending_up</span>
-                  +{toPhp(filteredFeatureRevenue)} from feature billings
+                  From approved payments this month
                 </p>
               </div>
               <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
@@ -334,50 +268,16 @@ export default function DuesPage() {
               </div>
             </div>
 
-            {/* Feature Billing Filter */}
-            <div className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-sm relative">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[#6B7280] text-sm font-medium">Feature Billings Included</p>
-                  <h3 className="text-2xl font-bold mt-1 text-[#111827]">{selectedRevenueFeatures.length}</h3>
-                  <p className="text-[#6B7280] text-xs mt-2">Facilities, rentable items, parks, and more</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsRevenueFilterOpen((open) => !open)}
-                  className="inline-flex items-center gap-2 px-3 py-2 border border-[#E5E7EB] rounded-lg text-xs font-semibold text-[#111827] hover:bg-[#F8F9FA]"
-                >
-                  Select
-                  <span className="material-icons-round text-base text-[#6B7280]">
-                    {isRevenueFilterOpen ? "expand_less" : "expand_more"}
-                  </span>
-                </button>
+            {/* Total Bills */}
+            <div className="bg-white p-6 rounded-xl border border-[#E5E7EB] shadow-sm flex items-center justify-between">
+              <div>
+                <p className="text-[#6B7280] text-sm font-medium">Total Bills</p>
+                <h3 className="text-3xl font-bold mt-1 text-[#111827]">{transactions.length}</h3>
+                <p className="text-[#6B7280] text-xs mt-2">All time billing records</p>
               </div>
-
-              {isRevenueFilterOpen && (
-                <div className="absolute z-20 top-21 right-6 w-65 bg-white border border-[#E5E7EB] rounded-xl shadow-lg overflow-hidden divide-y divide-[#F3F4F6]">
-                  {DUE_BILLING_FEATURE_OPTIONS.map((feature) => {
-                    const checked = selectedRevenueFeatures.includes(feature.value);
-
-                    return (
-                      <label
-                        key={feature.value}
-                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                          checked ? "bg-secondary/5" : "hover:bg-[#F8F9FA]"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleRevenueFeature(feature.value)}
-                          className="w-4 h-4 rounded accent-secondary"
-                        />
-                        <span className="text-sm font-medium text-[#111827]">{feature.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                <span className="material-icons-round">receipt_long</span>
+              </div>
             </div>
 
             {/* Pending Dues */}
@@ -425,33 +325,24 @@ export default function DuesPage() {
 
           <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-4 mb-8">
             <div className="flex items-center justify-between gap-4 mb-3">
-              <h2 className="text-sm font-bold text-[#111827]">Subdivision Revenue Breakdown by Feature</h2>
+              <h2 className="text-sm font-bold text-[#111827]">This Month&apos;s Revenue Summary</h2>
               <p className="text-xs text-[#6B7280]">
-                Included: {selectedRevenueFeatures.length} feature
-                {selectedRevenueFeatures.length > 1 ? "s" : ""}
+                {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {DUE_BILLING_FEATURE_OPTIONS.map((feature) => {
-                const amount = subdivisionRevenueByFeature[feature.value];
-                const enabled = selectedRevenueFeatures.includes(feature.value);
-
-                return (
-                  <div
-                    key={feature.value}
-                    className={`rounded-lg border px-4 py-3 ${
-                      enabled
-                        ? "border-[#E5E7EB] bg-white"
-                        : "border-[#E5E7EB] bg-[#F3F4F6] opacity-60"
-                    }`}
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
-                      {feature.label}
-                    </p>
-                    <p className="text-lg font-bold text-[#111827] mt-1">{toPhp(amount)}</p>
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-lg border border-[#E5E7EB] bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">Total Approved</p>
+                <p className="text-lg font-bold text-[#111827] mt-1">{toPhp(subdivisionRevenueThisMonth)}</p>
+              </div>
+              <div className="rounded-lg border border-[#E5E7EB] bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">Pending</p>
+                <p className="text-lg font-bold text-[#111827] mt-1">{toPhp(pendingTotal)}</p>
+              </div>
+              <div className="rounded-lg border border-[#E5E7EB] bg-white px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">Pending Count</p>
+                <p className="text-lg font-bold text-[#111827] mt-1">{pendingCount}</p>
+              </div>
             </div>
           </div>
 

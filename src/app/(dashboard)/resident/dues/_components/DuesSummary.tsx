@@ -95,7 +95,7 @@ export function DuesSummary() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-      {cards.map((card) => (
+      {CARDS.map((card) => (
         <div
           key={card.label}
           className={`bg-white rounded-xl p-6 border border-[#E5E7EB] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] ${card.borderClass}`}

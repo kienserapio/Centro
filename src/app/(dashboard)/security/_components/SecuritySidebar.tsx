@@ -13,7 +13,6 @@ const NAV_ITEMS = [
 ];
 
 const NAV_TOOLS = [
-  { label: "Settings", href: "/security/settings", icon: "settings" },
   { label: "Help Center", href: "/security/help", icon: "help_outline" },
 ];
 

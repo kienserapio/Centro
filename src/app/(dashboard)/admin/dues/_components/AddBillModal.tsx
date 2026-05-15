@@ -84,8 +84,6 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
   const [dueDate, setDueDate] = useState("");
   const [selectedFeatures, setSelectedFeatures] = useState<DueBillingFeature[]>([]);
   const [isFeatureMenuOpen, setIsFeatureMenuOpen] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const allSelected = residents.length > 0 && selectedResidents.length === residents.length;
 
@@ -147,11 +145,11 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
     setSelectedResidents(next);
   }
 
-  function toDateOnly(value: string): string | null {
+  function toISO(value: string): string | null {
     if (!value) return null;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return parsed.toISOString().slice(0, 10);
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 10);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -166,7 +164,7 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
       !dueDate ||
       selectedFeatures.length === 0
     ) {
-      setSubmitError("Please complete all required fields.");
+      setErrorMsg("Please complete all required fields.");
       return;
     }
 
@@ -178,10 +176,16 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
       return;
     }
 
+    const chosenForPayload: SelectedResident[] = chosen.map((r) => ({
+      id: r.id,
+      unitId: r.unitId!,
+      label: r.label,
+    }));
+
     setIsSubmitting(true);
 
     onCreateBill({
-      residentCount: selectedResidents.length,
+      residents: chosenForPayload,
       amount,
       description: description.trim(),
       billingPeriod,
@@ -191,10 +195,10 @@ export function AddBillModal({ onClose, onCreateBill }: AddBillModalProps) {
 
     try {
       const supabase = createClient();
-      const dueDateValue = toDateOnly(dueDate);
-      const billingPeriodValue = toDateOnly(billingPeriod);
+      const billingPeriodValue = billingPeriod ? toISO(`${billingPeriod}-01`) ?? toISO(billingPeriod) : null;
+      const dueDateValue = toISO(dueDate);
 
-      const inserts = chosen.map((resident) => ({
+      const inserts = chosenForPayload.map((resident) => ({
         unit_id: resident.unitId,
         description: description.trim(),
         amount,

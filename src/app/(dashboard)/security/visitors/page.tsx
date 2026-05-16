@@ -4,24 +4,18 @@ import { useState } from "react";
 import { SecuritySidebar } from "../_components/SecuritySidebar";
 import { SecurityMobileNav } from "../_components/SecurityMobileNav";
 import { VisitorStatsCards } from "./_components/VisitorStatsCards";
-import { VisitorLogTable, type Visitor } from "./_components/VisitorLogTable";
+import { VisitorLogTable } from "./_components/VisitorLogTable";
 import { LogVisitorModal } from "./_components/LogVisitorModal";
 
 export default function VisitorLogPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [pendingVisitor, setPendingVisitor] = useState<Visitor | null>(null);
-
-  function handleAdd(visitor: Visitor) {
-    setPendingVisitor(visitor);
-  }
 
   return (
     <div className="flex min-h-screen bg-[#F8F9FA]">
       <SecuritySidebar />
 
       <div className="flex-1 flex flex-col lg:pl-64 min-h-screen">
-        {/* Header */}
         <header className="h-16 bg-white border-b border-[#E5E7EB] flex items-center justify-between px-6 sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <span className="material-icons-round text-primary text-2xl">menu_book</span>
@@ -50,18 +44,15 @@ export default function VisitorLogPage() {
           </div>
         </header>
 
-        {/* Page body */}
         <main className="flex-1 p-6 space-y-6 pb-24 lg:pb-8 relative">
           <VisitorStatsCards />
-          <VisitorLogTable newVisitor={pendingVisitor} />
+          <VisitorLogTable />
 
-          {/* Floating Action Button */}
           <button
             onClick={() => setModalOpen(true)}
             className="fixed bottom-8 right-8 w-14 h-14 bg-secondary text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-105 transition-transform z-30 group"
           >
             <span className="material-icons-round text-3xl">add</span>
-            {/* Tooltip */}
             <span className="absolute right-full mr-3 bg-[#111827] text-white px-3 py-1.5 rounded-xl text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
               Quick Log Walk-in
             </span>
@@ -71,12 +62,8 @@ export default function VisitorLogPage() {
 
       <SecurityMobileNav />
 
-      {/* Modal */}
       {modalOpen && (
-        <LogVisitorModal
-          onClose={() => setModalOpen(false)}
-          onAdd={handleAdd}
-        />
+        <LogVisitorModal onClose={() => setModalOpen(false)} />
       )}
     </div>
   );

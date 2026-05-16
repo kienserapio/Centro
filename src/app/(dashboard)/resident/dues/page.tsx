@@ -11,7 +11,6 @@ export default function DuesPage() {
 
       <div className="flex-1 md:ml-64">
         <div className="p-4 md:p-8 pb-24 md:pb-8 max-w-5xl">
-          {/* Header */}
           <header className="mb-8">
             <h1 className="text-[30px] font-bold tracking-tight text-[#111827]">
               My Dues

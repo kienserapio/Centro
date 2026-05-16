@@ -58,8 +58,15 @@ export function TransactionsListing({ transactions, onApprove, approvingId }: Tr
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F3F4F6]">
-            {transactions.map((tx) => (
-              <tr key={tx.id} className="hover:bg-[#F8F9FA] transition-colors">
+            {transactions.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-10 text-center text-sm text-[#6B7280]">
+                  No recent transactions yet.
+                </td>
+              </tr>
+            ) : (
+              transactions.map((tx) => (
+                <tr key={tx.id} className="hover:bg-[#F8F9FA] transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-[#E5E7EB] flex items-center justify-center text-xs font-bold text-[#6B7280] shrink-0">
@@ -99,7 +106,8 @@ export function TransactionsListing({ transactions, onApprove, approvingId }: Tr
                   </td>
                 )}
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>

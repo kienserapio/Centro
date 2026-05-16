@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { AdminSidebar } from "../_components/AdminSidebar";
 import { AdminMobileNav } from "../_components/AdminMobileNav";
-import { IncidentTable, type Incident } from "../../security/incidents/_components/IncidentTable";
-import { ReportIncidentModal } from "../../security/incidents/_components/ReportIncidentModal";
+import { IncidentTable } from "../../security/incidents/_components/IncidentTable";
+import { useIncidents } from "../../security/incidents/_components/useIncidents";
 
 export default function AdminIncidentReportsPage() {
   const [search, setSearch] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [newIncident, setNewIncident] = useState<Incident | null>(null);
+  const { incidents, loading, error } = useIncidents();
 
   function handlePrintReport() {
     window.print();
@@ -69,31 +68,21 @@ export default function AdminIncidentReportsPage() {
                 <span className="material-icons-round text-[18px]">print</span>
                 Print Report
               </button>
-              <button
-                onClick={() => setModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary text-white text-sm font-bold hover:brightness-105 transition-all shadow-sm shadow-secondary/20"
-              >
-                <span className="material-icons-round text-[18px]">add_circle</span>
-                Report Incident
-              </button>
             </div>
           </div>
 
-          <IncidentTable search={search} newIncident={newIncident} />
+          <IncidentTable
+            search={search}
+            incidents={incidents}
+            loading={loading}
+            error={error}
+            readOnly
+            extendedDetail
+          />
         </main>
       </div>
 
       <AdminMobileNav />
-
-      {modalOpen && (
-        <ReportIncidentModal
-          onClose={() => setModalOpen(false)}
-          onAdd={(incident) => {
-            setNewIncident(incident);
-            setModalOpen(false);
-          }}
-        />
-      )}
     </div>
   );
 }

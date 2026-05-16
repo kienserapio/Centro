@@ -107,13 +107,6 @@ export function PaymentHistory() {
             </div>
           </div>
         ))}
-
-        <button
-          className="w-full mt-3 py-3 text-sm font-semibold text-secondary border-2 border-secondary/20 rounded-xl hover:bg-secondary/5 transition-colors"
-          disabled={history.length === 0}
-        >
-          View Full Statement History
-        </button>
       </div>
     </section>
   );

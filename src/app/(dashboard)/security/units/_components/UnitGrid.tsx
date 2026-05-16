@@ -27,11 +27,11 @@ export function UnitGrid({ search }: Props) {
         const response = await fetch("/api/security/units");
         if (!response.ok) throw new Error("Failed to fetch units");
         const data = await response.json();
-        const unitsArr = Array.isArray(data?.units) ? data.units : [];
+        const unitsArr: Unit[] = Array.isArray(data?.units) ? (data.units as Unit[]) : [];
         setUnits(unitsArr);
 
         // Extract unique phases safely
-        const uniquePhases = ["All Phases", ...new Set(unitsArr.map((u: Unit) => u.phase))];
+        const uniquePhases = ["All Phases", ...new Set(unitsArr.map((u: Unit) => u.phase).filter((p: string | null | undefined): p is string => !!p))];
         setPhases(uniquePhases);
       } catch (err) {
         console.error("Error fetching units:", err);

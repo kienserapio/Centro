@@ -80,20 +80,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: payment, error: paymentError } = await admin
+    const insertPayload = {
+      unit_id: due.unit_id,
+      recorded_by: user.id,
+      status: "pending",
+      amount,
+      description: due.description ?? "Resident payment",
+      billing_period: due.billing_period,
+      due_date: due.due_date,
+    };
+
+    let { data: payment, error: paymentError } = await admin
       .from("payments")
-      .insert({
-        unit_id: due.unit_id,
-        recorded_by: user.id,
-        transaction_type: "payment",
-        status: "pending",
-        amount,
-        description: due.description ?? "Resident payment",
-        billing_period: due.billing_period,
-        due_date: due.due_date,
-      })
+      .insert({ ...insertPayload, transaction_type: "payment" })
       .select()
       .single();
+
+    if (paymentError && (paymentError.message.includes("transaction_type") || paymentError.message.includes("Could not find the 'transaction_type'"))) {
+      ({ data: payment, error: paymentError } = await admin
+        .from("payments")
+        .insert(insertPayload)
+        .select()
+        .single());
+    }
 
     if (paymentError) {
       return NextResponse.json({ error: paymentError.message }, { status: 500 });

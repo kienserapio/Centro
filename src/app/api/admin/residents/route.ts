@@ -1,91 +1,14 @@
 /**
  * ┌──────────────────────────────────────────────────────────┐
- * │  RESIDENTS LIST — Fetch resident-role profiles           │
+ * │  RESIDENTS LIST — Fetch resident profiles                │
  * │  GET: Returns all profiles WHERE role = 'resident'       │
- * │       Joins the units table for address info             │
+ * │       Includes unit info via unit_residents + owner_id  │
  * │  Used by: Resident Directory page (/admin/residents)     │
  * └──────────────────────────────────────────────────────────┘
  */
 
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-
-const USE_DEMO_RESIDENTS = process.env.USE_DEMO_RESIDENTS === "true";
-
-const DEMO_RESIDENTS = [
-    {
-        id: "demo-resident-1",
-        full_name: "Juan Dela Cruz",
-        role: "resident",
-        phone: "+63 912 345 6781",
-        avatar_url: null,
-        is_active: true,
-        created_at: "2026-01-04T08:30:00.000Z",
-        units: {
-            id: "demo-unit-1",
-            block_number: "12",
-            lot_number: "04",
-            phase: "Phase 1",
-            address_label: "Mabini Street",
-            unit_type: "owned",
-        },
-    },
-    {
-        id: "demo-resident-2",
-        full_name: "Maria Santos",
-        role: "resident",
-        phone: "+63 917 123 4402",
-        avatar_url: null,
-        is_active: true,
-        created_at: "2026-01-10T10:15:00.000Z",
-        units: {
-            id: "demo-unit-2",
-            block_number: "14",
-            lot_number: "09",
-            phase: "Phase 2",
-            address_label: "Acacia Lane",
-            unit_type: "rented",
-        },
-    },
-    {
-        id: "demo-resident-3",
-        full_name: "Kevin Reyes",
-        role: "resident",
-        phone: "+63 998 881 0033",
-        avatar_url: null,
-        is_active: true,
-        created_at: "2026-01-13T09:45:00.000Z",
-        units: {
-            id: "demo-unit-3",
-            block_number: "15",
-            lot_number: "02",
-            phase: "Phase 3",
-            address_label: "Sampaguita Drive",
-            unit_type: "owned",
-        },
-    },
-    {
-        id: "demo-resident-4",
-        full_name: "Alyssa Gomez",
-        role: "resident",
-        phone: "+63 915 771 2288",
-        avatar_url: null,
-        is_active: true,
-        created_at: "2026-01-17T14:20:00.000Z",
-        units: {
-            id: "demo-unit-4",
-            block_number: "16",
-            lot_number: "07",
-            phase: "Phase 3",
-            address_label: "Mahogany Road",
-            unit_type: "rented",
-        },
-    },
-];
-
-function getDemoResidents() {
-    return DEMO_RESIDENTS;
-}
 
 /**
  * GET /api/admin/residents
@@ -94,16 +17,15 @@ function getDemoResidents() {
  */
 export async function GET() {
     try {
-        if (USE_DEMO_RESIDENTS) {
-            return NextResponse.json(getDemoResidents());
-        }
-
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
         if (!supabaseUrl || !serviceRoleKey) {
-            console.warn("[GET /api/admin/residents] Missing Supabase env vars. Falling back to demo residents.");
-            return NextResponse.json(getDemoResidents());
+            console.warn("[GET /api/admin/residents] Missing Supabase env vars.");
+            return NextResponse.json(
+                { error: "Missing Supabase configuration." },
+                { status: 500 },
+            );
         }
 
         const supabase = createServiceClient(supabaseUrl, serviceRoleKey);
@@ -139,10 +61,34 @@ export async function GET() {
 
         if (error) {
             console.error("[GET /api/admin/residents] Error:", error);
-            return NextResponse.json(getDemoResidents());
+            return NextResponse.json(
+                { error: error.message ?? "Failed to fetch residents." },
+                { status: 500 },
+            );
         }
 
-        const normalized = (residents ?? []).map((row) => {
+        const normalized = (residents as unknown as Array<{
+            id: string;
+            full_name: string | null;
+            username: string | null;
+            email: string | null;
+            role: string | null;
+            phone: string | null;
+            avatar_url: string | null;
+            is_active: boolean | null;
+            created_at: string;
+            unit_residents: Array<{
+                is_primary: boolean | null;
+                unit: {
+                    id: string;
+                    block_number: string | null;
+                    lot_number: string | null;
+                    address_label: string | null;
+                    unit_type: string | null;
+                    phase: { name: string | null } | null;
+                } | null;
+            }>;
+        }> ?? []).map((row) => {
             const links = Array.isArray(row.unit_residents) ? row.unit_residents : [];
             const primary = links.find((link) => link.is_primary) ?? links[0];
             const unit = primary?.unit ?? null;
@@ -181,6 +127,6 @@ export async function GET() {
         return NextResponse.json(normalized);
     } catch (err) {
         console.error("[GET /api/admin/residents] Internal error:", err);
-        return NextResponse.json(getDemoResidents());
+        return NextResponse.json({ error: "Internal error." }, { status: 500 });
     }
 }

@@ -67,7 +67,28 @@ export async function GET() {
             );
         }
 
-        const normalized = (residents ?? []).map((row) => {
+        const normalized = (residents as unknown as Array<{
+            id: string;
+            full_name: string | null;
+            username: string | null;
+            email: string | null;
+            role: string | null;
+            phone: string | null;
+            avatar_url: string | null;
+            is_active: boolean | null;
+            created_at: string;
+            unit_residents: Array<{
+                is_primary: boolean | null;
+                unit: {
+                    id: string;
+                    block_number: string | null;
+                    lot_number: string | null;
+                    address_label: string | null;
+                    unit_type: string | null;
+                    phase: { name: string | null } | null;
+                } | null;
+            }>;
+        }> ?? []).map((row) => {
             const links = Array.isArray(row.unit_residents) ? row.unit_residents : [];
             const primary = links.find((link) => link.is_primary) ?? links[0];
             const unit = primary?.unit ?? null;

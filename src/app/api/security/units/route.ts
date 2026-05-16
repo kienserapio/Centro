@@ -84,8 +84,8 @@ export async function GET() {
       units: transformedUnits,
       total: transformedUnits.length,
       debug: {
-        unitsCount: units.length,
-        residentsCount: residents.length,
+        unitsCount: (units ?? []).length,
+        residentsCount: (residents ?? []).length,
       },
     });
   } catch (err) {

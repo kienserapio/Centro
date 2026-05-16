@@ -56,9 +56,9 @@ export function JobRequestModal({ onClose }: JobRequestModalProps) {
       } else {
         setHostUnitData({
           unit_id: data.unit_id,
-          address_label: data.units?.address_label ?? null,
-          block_number: data.units?.block_number ?? null,
-          lot_number: data.units?.lot_number ?? null,
+          address_label: data.units?.[0]?.address_label ?? null,
+          block_number: data.units?.[0]?.block_number ?? null,
+          lot_number: data.units?.[0]?.lot_number ?? null,
         });
       }
 

@@ -66,7 +66,7 @@ export function GuestPassModal({ onClose }: GuestPassModalProps) {
         setUnitErrorMessage("No unit assigned to this account.");
         setHostUnitData(null);
       } else {
-        setHostUnitData(data as HostUnitData);
+        setHostUnitData(data as unknown as HostUnitData);
       }
 
       setIsUnitLoading(false);

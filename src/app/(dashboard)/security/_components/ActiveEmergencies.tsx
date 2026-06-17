@@ -1,53 +1,88 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-
-interface EmergencyAlert {
-  id: string;
-  type: string;
-  icon: string;
-  location: string;
-  residentName: string;
-  unit: string;
-  contact: string;
-  timer: string;
-  avatarUrl?: string;
-}
-
-const INITIAL_ALERTS: EmergencyAlert[] = [
-  {
-    id: "1",
-    type: "Resident Panic Alarm",
-    icon: "emergency_home",
-    location: "B/L/P 24",
-    residentName: "John Doe",
-    unit: "Unit 12-A",
-    contact: "+63 917 555 0123",
-    timer: "02:45",
-  },
-  {
-    id: "2",
-    type: "Smoke Detected",
-    icon: "fire_extinguisher",
-    location: "B/L/P 12",
-    residentName: "Jane Smith",
-    unit: "Unit 04-F",
-    contact: "+63 917 555 0987",
-    timer: "01:20",
-  },
-];
+import type { EmergencyAlertWithDetails } from "@/lib/incidents/types";
+import { dbValueToUiLabel, formatDuration } from "@/lib/incidents/constants";
 
 const CARD_WIDTH = 380;
 const CARD_GAP = 16;
 
+/** Live counting-up timer from created_at. */
+function WaitTimer({ from }: { from: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = now - new Date(from).getTime();
+  const totalSeconds = Math.floor(Math.max(0, elapsed) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return (
+    <span className="text-xl font-mono text-primary font-bold">
+      {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+    </span>
+  );
+}
+
+/** Icon for incident type. */
+function getIncidentIcon(type: string): string {
+  switch (type) {
+    case "medical": return "local_hospital";
+    case "fire": return "fire_extinguisher";
+    case "intrusion": return "shield";
+    case "suspicious": return "visibility";
+    default: return "emergency_home";
+  }
+}
+
 export function ActiveEmergencies() {
-  const [alerts, setAlerts] = useState<EmergencyAlert[]>(INITIAL_ALERTS);
+  const [alerts, setAlerts] = useState<EmergencyAlertWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  function acknowledge(id: string) {
-    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  // Fetch open alerts
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/incidents");
+      if (!res.ok) return;
+      const data: EmergencyAlertWithDetails[] = await res.json();
+      // Only show open (pending) alerts
+      setAlerts(data.filter((a) => a.status === "open"));
+    } catch {
+      // Silently fail — dashboard still works
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAlerts();
+    // Poll every 10 seconds for new alerts
+    const interval = setInterval(fetchAlerts, 10000);
+    return () => clearInterval(interval);
+  }, [fetchAlerts]);
+
+  async function acknowledge(alertId: string) {
+    setAcknowledgingId(alertId);
+    try {
+      const res = await fetch(`/api/incidents/${alertId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "responding" }),
+      });
+      if (res.ok) {
+        // Immediately remove from the list
+        setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setAcknowledgingId(null);
+    }
   }
 
   const updateArrows = useCallback(() => {
@@ -77,6 +112,23 @@ export function ActiveEmergencies() {
       left: direction === "right" ? CARD_WIDTH + CARD_GAP : -(CARD_WIDTH + CARD_GAP),
       behavior: "smooth",
     });
+  }
+
+  if (loading) {
+    return (
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-bold text-[#111827] flex items-center gap-2">
+            <span className="material-icons-round text-primary">warning</span>
+            Active Emergencies
+          </h3>
+        </div>
+        <div className="bg-white border border-[#E5E7EB] rounded-2xl p-8 text-center">
+          <span className="material-icons-round animate-spin text-[#6B7280] text-2xl">refresh</span>
+          <p className="text-sm text-[#6B7280] mt-2">Loading alerts…</p>
+        </div>
+      </section>
+    );
   }
 
   if (alerts.length === 0) {
@@ -124,7 +176,7 @@ export function ActiveEmergencies() {
           <span className="material-icons-round text-[#374151] text-base">chevron_left</span>
         </button>
 
-        {/* Scrollable track — clipped so cards don't bleed past panel edges */}
+        {/* Scrollable track */}
         <div
           ref={scrollRef}
           className="flex gap-4 overflow-x-hidden pb-2 scroll-smooth"
@@ -140,17 +192,21 @@ export function ActiveEmergencies() {
             <div className="flex justify-between items-start">
               <div className="flex gap-3">
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-                  <span className="material-icons-round text-primary text-2xl">{alert.icon}</span>
+                  <span className="material-icons-round text-primary text-2xl">
+                    {getIncidentIcon(alert.incident_type)}
+                  </span>
                 </div>
                 <div>
                   <p className="text-[10px] text-[#6B7280] uppercase tracking-widest font-bold">
-                    {alert.type}
+                    {dbValueToUiLabel(alert.incident_type)}
                   </p>
-                  <h4 className="text-2xl font-black text-[#111827] mt-0.5">{alert.location}</h4>
+                  <h4 className="text-2xl font-black text-[#111827] mt-0.5">
+                    {alert.reporter_unit_label.replace("Block ", "B").replace(", Lot ", "/L")}
+                  </h4>
                 </div>
               </div>
               <div className="flex flex-col items-end shrink-0">
-                <span className="text-xl font-mono text-primary font-bold">{alert.timer}</span>
+                <WaitTimer from={alert.created_at} />
                 <span className="text-[10px] text-[#6B7280] uppercase tracking-tight">
                   Response Timer
                 </span>
@@ -163,20 +219,19 @@ export function ActiveEmergencies() {
                 <span className="material-icons-round text-[#6B7280] text-base">person</span>
               </div>
               <div>
-                <p className="text-sm font-bold text-[#111827]">{alert.residentName}</p>
-                <p className="text-xs text-[#6B7280]">
-                  {alert.unit} · {alert.contact}
-                </p>
+                <p className="text-sm font-bold text-[#111827]">{alert.reporter_name}</p>
+                <p className="text-xs text-[#6B7280]">{alert.reporter_unit_label}</p>
               </div>
             </div>
 
             {/* Acknowledge button */}
             <button
               onClick={() => acknowledge(alert.id)}
-              className="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-sm text-sm"
+              disabled={acknowledgingId === alert.id}
+              className="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:brightness-105 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-sm text-sm disabled:opacity-60"
             >
               <span className="material-icons-round text-base">check_circle</span>
-              ACKNOWLEDGE RESPONSE
+              {acknowledgingId === alert.id ? "ACKNOWLEDGING…" : "ACKNOWLEDGE RESPONSE"}
             </button>
           </div>
         ))}

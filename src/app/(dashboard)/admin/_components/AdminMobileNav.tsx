@@ -9,7 +9,7 @@ const ITEMS = [
   { label: "Post", href: "/admin/posts", icon: "add_circle" },
   { label: "Billing", href: "/admin/dues", icon: "payments" },
   { label: "Incidents", href: "/admin/incident-reports", icon: "report" },
-  { label: "Profile", href: "/admin/settings", icon: "account_circle" },
+  { label: "Help", href: "/admin/help", icon: "help_outline" },
 ];
 
 export function AdminMobileNav() {

@@ -8,7 +8,7 @@ const ITEMS = [
   { label: "Visitors", href: "/security/visitors", icon: "group" },
   { label: "Units", href: "/security/units", icon: "domain" },
   { label: "Incidents", href: "/security/incidents", icon: "report" },
-  { label: "Profile", href: "/security/settings", icon: "account_circle" },
+  { label: "Help", href: "/security/help", icon: "help_outline" },
 ];
 
 export function SecurityMobileNav() {

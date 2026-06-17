@@ -6,13 +6,13 @@ import { SidebarUserProfile } from "@/app/(dashboard)/_components/SidebarUserPro
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/security", icon: "dashboard" },
+  { label: "Guard Schedule", href: "/security/guard-schedule", icon: "schedule" },
   { label: "Visitor Log", href: "/security/visitors", icon: "group" },
   { label: "Unit Directory", href: "/security/units", icon: "domain" },
   { label: "Incident Reports", href: "/security/incidents", icon: "report" },
 ];
 
 const NAV_TOOLS = [
-  { label: "Settings", href: "/security/settings", icon: "settings" },
   { label: "Help Center", href: "/security/help", icon: "help_outline" },
 ];
 

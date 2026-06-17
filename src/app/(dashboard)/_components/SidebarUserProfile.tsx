@@ -53,24 +53,25 @@ export function SidebarUserProfile({ variant }: Props) {
       const { data } = await supabase
         .from("profiles")
         .select(
-          "full_name, role, avatar_url, units:unit_id(block_number, lot_number, phase, address_label, unit_type)"
+          "full_name, role, avatar_url, unit_residents(units(block_number, lot_number, phase, address_label, unit_type))"
         )
         .eq("id", user.id)
         .single();
 
       if (data) {
         // Supabase returns joined one-to-one relations as arrays; normalise to object or null
-        const raw = data as {
+        const raw = data as unknown as {
           full_name: string | null;
           role: string | null;
           avatar_url: string | null;
-          units: ProfileData["units"] | ProfileData["units"][];
+          unit_residents: { units: ProfileData["units"][] }[];
         };
+        const units = raw.unit_residents?.[0]?.units?.[0] ?? null;
         setProfile({
           full_name: raw.full_name,
           role: raw.role,
           avatar_url: raw.avatar_url,
-          units: Array.isArray(raw.units) ? (raw.units[0] ?? null) : raw.units,
+          units,
         });
       }
     }

@@ -3,13 +3,17 @@
 import { useState } from "react";
 import { SecuritySidebar } from "../_components/SecuritySidebar";
 import { SecurityMobileNav } from "../_components/SecurityMobileNav";
-import { IncidentTable, type Incident } from "./_components/IncidentTable";
-import { ReportIncidentModal } from "./_components/ReportIncidentModal";
+import { IncidentTable } from "./_components/IncidentTable";
+import { useIncidents } from "./_components/useIncidents";
+import { ReportIncidentModal } from "../../resident/_components/ReportIncidentModal";
+import type { EmergencyAlertWithDetails } from "@/lib/incidents/types";
 
 export default function IncidentReportsPage() {
   const [search, setSearch] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [newIncident, setNewIncident] = useState<Incident | null>(null);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [editingIncident, setEditingIncident] = useState<EmergencyAlertWithDetails | null>(null);
+
+  const { incidents, loading, error, refetch } = useIncidents();
 
   function handlePrintReport() {
     window.print();
@@ -73,7 +77,7 @@ export default function IncidentReportsPage() {
                 Print Report
               </button>
               <button
-                onClick={() => setModalOpen(true)}
+                onClick={() => setReportModalOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-bold hover:brightness-105 transition-all shadow-sm shadow-primary/20"
               >
                 <span className="material-icons-round text-[18px]">add_circle</span>
@@ -82,18 +86,39 @@ export default function IncidentReportsPage() {
             </div>
           </div>
 
-          <IncidentTable search={search} newIncident={newIncident} />
+          <IncidentTable
+            search={search}
+            incidents={incidents}
+            loading={loading}
+            error={error}
+            onAction={(incident) => setEditingIncident(incident)}
+          />
         </main>
       </div>
 
       <SecurityMobileNav />
 
-      {modalOpen && (
+      {/* Report new incident modal (guard can also report) */}
+      {reportModalOpen && (
         <ReportIncidentModal
-          onClose={() => setModalOpen(false)}
-          onAdd={(incident) => {
-            setNewIncident(incident);
-            setModalOpen(false);
+          mode="report"
+          onClose={() => setReportModalOpen(false)}
+          onSubmitSuccess={() => {
+            setReportModalOpen(false);
+            refetch();
+          }}
+        />
+      )}
+
+      {/* Edit incident status modal */}
+      {editingIncident && (
+        <ReportIncidentModal
+          mode="edit"
+          incident={editingIncident}
+          onClose={() => setEditingIncident(null)}
+          onSubmitSuccess={() => {
+            setEditingIncident(null);
+            refetch();
           }}
         />
       )}
